@@ -46,8 +46,8 @@ export function PageHero({
             </motion.div>
           )}
           <motion.h1
-            initial={{ opacity: 0, y: 22, filter: "blur(10px)" }}
-            animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+            initial={{ opacity: 0, y: 22 }}
+            animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, ease: EASE, delay: 0.05 }}
             className="font-display text-[40px] font-extrabold leading-[1.02] tracking-[-0.035em] text-fg sm:text-5xl xl:text-[56px]"
           >
@@ -63,16 +63,6 @@ export function PageHero({
               {subtitle}
             </motion.p>
           )}
-          {children && (
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.7, ease: EASE, delay: 0.25 }}
-              className="mt-5"
-            >
-              {children}
-            </motion.div>
-          )}
         </div>
         {aside && (
           <motion.div
@@ -85,6 +75,16 @@ export function PageHero({
           </motion.div>
         )}
       </div>
+      {children && (
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, ease: EASE, delay: 0.25 }}
+          className="relative mt-5 px-4 sm:px-6 lg:px-8"
+        >
+          {children}
+        </motion.div>
+      )}
     </section>
   );
 }

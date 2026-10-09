@@ -179,10 +179,11 @@ export function fireHotspots(t: Hour, max = 420): { total: number; points: FireH
   const doy = dayOfYear(t);
   const season = fireSeason(doy);
   const rnd = mulberry32(dayIndex * 7919 + 13);
-  const total = Math.round(2400 * season + 90 + 60 * rnd());
+  const spring = Math.exp(-0.5 * ((doy - 105) / 28) ** 2); // central-India forest fires, Mar–May
+  const total = Math.round(2400 * season + 60 + 260 * spring + 50 * rnd());
   const n = Math.min(total, max);
   const pts: FireHotspot[] = [];
-  const seasonalShare = clamp(season * 1.2, 0.05, 0.9);
+  const seasonalShare = clamp(season * 4, 0.12, 0.92);
   for (let i = 0; i < n; i++) {
     const useSeasonal = rnd() < seasonalShare;
     const pool = FIRE_BOXES.filter((b) => b.seasonal === useSeasonal);
