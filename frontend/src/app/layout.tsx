@@ -7,8 +7,15 @@ import "./globals.css";
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"], display: "swap" });
 const mono = JetBrains_Mono({ variable: "--font-jetbrains", subsets: ["latin"], display: "swap" });
 // Christmas Mallow Demo (via 1001fonts) — free for personal use only. Buy a licence before commercial use.
-// George Asher Demo — personal use only. Used for card & section titles.
-const george = localFont({ src: "../fonts/GeorgeAsher-Demo.ttf", variable: "--font-george", display: "swap" });
+// Papernotes — text inside cards & glass panels.
+const george = localFont({
+  src: [
+    { path: "../fonts/Papernotes.woff2", weight: "400" },
+    { path: "../fonts/Papernotes-Bold.woff2", weight: "700" },
+  ],
+  variable: "--font-george",
+  display: "swap",
+});
 const gasdrifo = localFont({ src: "../fonts/ChristmasMallow-Demo.ttf",
   variable: "--font-gasdrifo",
   display: "swap",
