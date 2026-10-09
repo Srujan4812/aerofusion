@@ -11,7 +11,7 @@ const gasdrifo = localFont({ src: "../fonts/ChristmasMallow-Demo.ttf",
   variable: "--font-gasdrifo",
   display: "swap",
   // The face draws very large for its em-box; scale it down to sit like a normal display font.
-  declarations: [{ prop: "size-adjust", value: "52%" }],
+  declarations: [{ prop: "size-adjust", value: "42%" }],
 });
 
 export const metadata: Metadata = {
