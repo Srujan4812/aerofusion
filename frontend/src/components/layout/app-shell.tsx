@@ -3,6 +3,7 @@
 import { X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useSearchParams } from "next/navigation";
+import Image from "next/image";
 import { Dialog } from "radix-ui";
 import { Suspense, useEffect, type ReactNode } from "react";
 import { useAppStore } from "@/hooks/use-app-store";
@@ -63,7 +64,12 @@ function CityFromQuery() {
 
 export function AppShell({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-dvh">
+    <div className="photo-theme flex min-h-dvh">
+      <div className="pointer-events-none fixed inset-0 z-[-1]" aria-hidden>
+        <Image src="/hero/app-bg.webp" alt="" fill priority sizes="100vw" quality={100} className="object-cover" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#0b1d33]/45 via-[#0b1d33]/25 to-[#0b1d33]/55" />
+        <div className="absolute inset-0 hidden bg-[#050a14]/35 dark:block" />
+      </div>
       <Sidebar />
       <div className="relative flex min-w-0 flex-1 flex-col">
         <Topbar />

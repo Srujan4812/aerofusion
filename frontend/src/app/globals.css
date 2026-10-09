@@ -526,3 +526,50 @@ html.lenis body {
   color: #ffffff;
   text-shadow: 0 1px 8px rgba(5, 15, 35, 0.4);
 }
+
+/* App pages over photography: white-on-glass tokens (same in light & dark). */
+.photo-theme {
+  --bg: transparent;
+  --fg: #ffffff;
+  --fg-muted: rgba(255, 255, 255, 0.8);
+  --fg-subtle: rgba(255, 255, 255, 0.58);
+  --surface: rgba(255, 255, 255, 0.07);
+  --surface-2: rgba(255, 255, 255, 0.06);
+  --surface-solid: rgba(18, 26, 46, 0.72);
+  --surface-sunken: rgba(255, 255, 255, 0.09);
+  --border: rgba(255, 255, 255, 0.14);
+  --border-strong: rgba(255, 255, 255, 0.26);
+  --primary: #5eead4;
+  --primary-strong: #2dd4bf;
+  --primary-fg: #04201b;
+  --primary-soft: rgba(94, 234, 212, 0.16);
+  --accent: #93c5fd;
+  --accent-soft: rgba(147, 197, 253, 0.16);
+  --lg-fill: rgba(255, 255, 255, 0.08);
+  --lg-fill-strong: rgba(255, 255, 255, 0.22);
+  --lg-sheen: rgba(255, 255, 255, 0.14);
+  --lg-hl: rgba(255, 255, 255, 0.6);
+  --lg-rim: rgba(255, 255, 255, 0.32);
+  --lg-blur: 4px;
+  --lg-shadow: 0 2px 6px rgba(0, 0, 0, 0.08), 0 10px 24px -6px rgba(0, 0, 0, 0.18), 0 32px 64px -24px rgba(0, 0, 0, 0.35);
+  --card-sheen: rgba(255, 255, 255, 0.12);
+  --card-rim: rgba(255, 255, 255, 0.3);
+  --seg-track: rgba(255, 255, 255, 0.1);
+  --grid-line: rgba(255, 255, 255, 0.1);
+  --map-land: rgba(255, 255, 255, 0.1);
+  --map-stroke: rgba(255, 255, 255, 0.22);
+  --shadow-rgb: 0 0 0;
+  color: var(--fg);
+}
+.photo-theme .card {
+  -webkit-backdrop-filter: blur(4px) saturate(160%);
+  backdrop-filter: blur(4px) saturate(160%);
+  box-shadow: inset 0 1px 0.5px rgba(255, 255, 255, 0.6), inset 0 0 0 0.75px rgba(255, 255, 255, 0.22), var(--lg-shadow);
+  text-shadow: 0 1px 6px rgba(5, 15, 35, 0.35);
+}
+.photo-theme .page-hero-sky {
+  display: none;
+}
+.photo-theme .recharts-text {
+  fill: rgba(255, 255, 255, 0.7);
+}

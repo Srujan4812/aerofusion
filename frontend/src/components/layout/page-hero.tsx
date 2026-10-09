@@ -28,7 +28,7 @@ export function PageHero({
 }) {
   return (
     <section className={cn("relative -mx-4 -mt-[76px] mb-6 sm:-mx-6 lg:-mx-8", className)}>
-      <div className="pointer-events-none absolute inset-0 overflow-hidden [mask-image:linear-gradient(to_bottom,black_62%,transparent_100%)]">
+      <div className="page-hero-sky pointer-events-none absolute inset-0 overflow-hidden [mask-image:linear-gradient(to_bottom,black_62%,transparent_100%)]">
         <div className="absolute inset-0 [mask-image:linear-gradient(to_right,rgba(0,0,0,0.08)_0%,rgba(0,0,0,0.4)_22%,black_52%)]">
           <SkyScene {...sky} className="absolute inset-0" />
         </div>
