@@ -43,9 +43,9 @@ export function AboutView() {
         subtitle="MW-AeroFusion-Net: Multi-Resolution Wavelet Adaptive Diffusion Graph ConvLSTM Transformer Network for Explainable PM2.5 Forecasting in India."
         aside={
           <GlassNote icon={<GraduationCap />}>
-            B.E. Major Project · Dept. of CSE
+            Explainable air-quality
             <br />
-            B.M.S. College of Engineering, Bengaluru
+            intelligence for India
           </GlassNote>
         }
       />
@@ -83,7 +83,7 @@ export function AboutView() {
         </Card>
 
         <Card className="xl:col-span-5">
-          <CardHeader title="Team · Group 40" subtitle="Academic year 2025–26" icon={<Users className="size-4" />} />
+          <CardHeader title="Team" subtitle="The people building AeroFusion" icon={<Users className="size-4" />} />
           <div className="grid gap-2.5 sm:grid-cols-2">
             {TEAM.map((m, i) => (
               <motion.div
@@ -112,9 +112,9 @@ export function AboutView() {
               <GraduationCap className="size-5" />
             </span>
             <div>
-              <div className="text-[11px] font-semibold text-primary">Project guide</div>
+              <div className="text-[11px] font-semibold text-primary">Mentor</div>
               <div className="text-sm font-semibold text-fg">Pallavi C V</div>
-              <div className="text-xs text-fg-muted">Assistant Professor, Dept. of CSE, BMSCE</div>
+              <div className="text-xs text-fg-muted">Research mentor</div>
             </div>
           </div>
         </Card>

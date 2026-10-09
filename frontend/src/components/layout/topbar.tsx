@@ -139,9 +139,9 @@ export function Topbar() {
           <Link
             href="/about"
             className="hidden size-9 place-items-center rounded-full bg-gradient-to-br from-[#5ad1bb] to-[#4b7fe6] text-[11px] font-bold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.45)] sm:grid"
-            aria-label="Team"
+            aria-label="Profile"
           >
-            G40
+            S
           </Link>
         </div>
       </div>

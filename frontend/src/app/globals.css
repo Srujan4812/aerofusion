@@ -148,7 +148,7 @@
   --color-aqi-severe: #a21caf;
 
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-gasdrifo), -apple-system, BlinkMacSystemFont, "SF Pro Display", var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, "SF Mono", var(--font-jetbrains), monospace;
 }
 
@@ -330,8 +330,15 @@ html.lenis body {
 }
 
 @utility font-display {
+  font-family: var(--font-gasdrifo), -apple-system, BlinkMacSystemFont, "SF Pro Display", var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: -0.01em;
+}
+
+/* Numbers stay on the system face for tabular legibility. */
+@utility font-num {
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  letter-spacing: -0.022em;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
 }
 
 @utility tabular {

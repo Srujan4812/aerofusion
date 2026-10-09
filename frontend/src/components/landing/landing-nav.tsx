@@ -24,10 +24,11 @@ export function LandingNav() {
   const [overHero, setOverHero] = useState(true);
   const [open, setOpen] = useState(false);
   const setCommandOpen = useAppStore((s) => s.setCommandOpen);
-  useMotionValueEvent(scrollY, "change", (v) => setOverHero(v < window.innerHeight - 90));
+  useMotionValueEvent(scrollY, "change", (v) => setOverHero(v < 40));
 
-  const shell = overHero ? "glass-hero" : "glass text-fg";
-  const muted = overHero ? "text-white/80 hover:text-white" : "text-fg-muted hover:text-fg";
+  // The homepage artwork runs under the whole page, so the nav stays clear glass; it just tightens on scroll.
+  const shell = overHero ? "glass-hero" : "glass-hero shadow-[0_18px_50px_-20px_rgba(5,15,35,0.7)]";
+  const muted = "text-white/80 hover:text-white";
 
   return (
     <motion.header

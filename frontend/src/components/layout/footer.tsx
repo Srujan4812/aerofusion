@@ -6,7 +6,7 @@ export function Footer() {
     <footer className="no-print border-t border-border px-4 py-6 text-xs text-fg-subtle sm:px-6 lg:px-8">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          © 2026 MW-AeroFusion-Net · Group 40, Dept. of CSE, B.M.S. College of Engineering, Bengaluru
+          © 2026 AeroFusion · Explainable air-quality forecasting for India
         </div>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
           <span>
