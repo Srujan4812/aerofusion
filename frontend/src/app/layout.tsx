@@ -7,6 +7,8 @@ import "./globals.css";
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"], display: "swap" });
 const mono = JetBrains_Mono({ variable: "--font-jetbrains", subsets: ["latin"], display: "swap" });
 // Christmas Mallow Demo (via 1001fonts) — free for personal use only. Buy a licence before commercial use.
+// George Asher Demo — personal use only. Used for card & section titles.
+const george = localFont({ src: "../fonts/GeorgeAsher-Demo.ttf", variable: "--font-george", display: "swap" });
 const gasdrifo = localFont({ src: "../fonts/ChristmasMallow-Demo.ttf",
   variable: "--font-gasdrifo",
   display: "swap",
@@ -38,7 +40,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${inter.variable} ${mono.variable} ${gasdrifo.variable} h-full antialiased`}
+      className={`${inter.variable} ${mono.variable} ${gasdrifo.variable} ${george.variable} h-full antialiased`}
     >
       <body className="min-h-full">
         <Providers>

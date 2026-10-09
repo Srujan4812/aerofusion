@@ -109,7 +109,7 @@ export function LiveMapView() {
       {/* Header */}
       <div className="mb-5 flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
         <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
-          <h1 className="font-display text-4xl font-bold tracking-[-0.035em] text-fg sm:text-[44px]">
+          <h1 className="font-hero text-4xl font-bold tracking-[-0.035em] text-fg sm:text-[44px]">
             Live Air Quality <span className="text-gradient">Map</span>
           </h1>
           <p className="mt-2 max-w-xl text-[15px] text-fg-muted">

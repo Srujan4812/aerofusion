@@ -49,7 +49,7 @@ export function PageHero({
             initial={{ opacity: 0, y: 22 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, ease: EASE, delay: 0.05 }}
-            className="font-display text-[40px] font-bold leading-[1.04] tracking-[-0.03em] text-fg sm:text-5xl xl:text-[56px]"
+            className="font-hero text-[40px] font-bold leading-[1.04] tracking-[-0.03em] text-fg sm:text-5xl xl:text-[56px]"
           >
             {title}
           </motion.h1>

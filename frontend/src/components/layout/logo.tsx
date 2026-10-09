@@ -40,7 +40,7 @@ export function Logo({ compact, className }: { compact?: boolean; className?: st
       <LogoMark />
       {!compact && (
         <div className="leading-none">
-          <div className="font-display text-[19px] font-bold tracking-tight text-fg">
+          <div className="font-hero text-[19px] font-bold tracking-tight text-fg">
             Aero<span className="text-primary">Fusion</span>
           </div>
           <div className="mt-1 text-[10.5px] font-medium tracking-wide text-fg-subtle">MW-AeroFusion-Net</div>

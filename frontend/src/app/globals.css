@@ -330,7 +330,13 @@ html.lenis body {
 }
 
 @utility font-display {
-  font-family: var(--font-gasdrifo), -apple-system, BlinkMacSystemFont, "SF Pro Display", var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-george), -apple-system, BlinkMacSystemFont, "SF Pro Display", var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: -0.01em;
+}
+
+/* Big hero titles & logo: Christmas Mallow. */
+@utility font-hero {
+  font-family: var(--font-gasdrifo), var(--font-george), -apple-system, BlinkMacSystemFont, var(--font-inter), sans-serif;
   letter-spacing: -0.01em;
 }
 

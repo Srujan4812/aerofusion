@@ -41,7 +41,7 @@ export function LandingNav() {
         <Link href="/" aria-label="AeroFusion home" className="flex shrink-0 items-center gap-2.5 rounded-full py-1 pl-2 pr-4">
           <LogoMark className="size-10" />
           <div className="leading-none">
-            <div className={cn("font-display text-[19px] font-semibold tracking-tight", overHero ? "text-white" : "text-fg")}>AeroFusion</div>
+            <div className={cn("font-hero text-[19px] font-semibold tracking-tight", overHero ? "text-white" : "text-fg")}>AeroFusion</div>
             <div className={cn("mt-1 text-[11px]", overHero ? "text-white/75" : "text-fg-subtle")}>MW-AeroFusion-Net</div>
           </div>
         </Link>

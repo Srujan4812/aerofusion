@@ -145,7 +145,7 @@ function Hero({ delhi }: { delhi: number | null }) {
           <span className="size-2 rounded-full bg-emerald-400 shadow-[0_0_10px_#34d399]" />
           AI for cleaner air
         </motion.div>
-        <h1 className="font-display text-[44px] leading-[1.06] text-white [text-shadow:0_2px_28px_rgba(5,15,35,0.45)] sm:text-6xl xl:text-[80px]">
+        <h1 className="font-hero text-[44px] leading-[1.06] text-white [text-shadow:0_2px_28px_rgba(5,15,35,0.45)] sm:text-6xl xl:text-[80px]">
           <Words text="Forecast the Air." />
           <br />
           <Words text="Understand the" delay={0.25} />
