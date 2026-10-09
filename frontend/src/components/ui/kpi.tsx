@@ -33,14 +33,18 @@ export function Kpi({
   return (
     <Card className={cn("group overflow-hidden !p-4 sm:!p-5", className)}>
       <div
-        className="pointer-events-none absolute -right-10 -top-10 size-32 rounded-full opacity-[0.12] blur-2xl transition-opacity duration-500 group-hover:opacity-25"
+        className="pointer-events-none absolute -right-10 -top-10 size-32 rounded-full opacity-[0.14] blur-3xl transition-opacity duration-500 group-hover:opacity-30"
         style={{ background: tint }}
       />
       <div className="relative flex items-start gap-3.5">
         {icon && (
           <div
-            className="grid size-11 shrink-0 place-items-center rounded-2xl [&_svg]:size-5"
-            style={{ color: tint, background: `color-mix(in oklab, ${tint} 13%, transparent)` }}
+            className="grid size-11 shrink-0 place-items-center rounded-full [&_svg]:size-5"
+            style={{
+              color: tint,
+              background: `linear-gradient(180deg, color-mix(in oklab, ${tint} 20%, transparent), color-mix(in oklab, ${tint} 9%, transparent))`,
+              boxShadow: `inset 0 1px 0 rgba(255,255,255,0.45), inset 0 0 0 0.5px color-mix(in oklab, ${tint} 25%, transparent)`,
+            }}
           >
             {icon}
           </div>
@@ -51,7 +55,7 @@ export function Kpi({
             <Skeleton className="mt-2 h-8 w-24" />
           ) : (
             <div className="mt-1 flex items-baseline gap-1.5">
-              <span className="font-display text-[28px] font-bold leading-none tracking-tight text-fg">
+              <span className="font-display text-[28px] font-semibold leading-none tracking-[-0.03em] text-fg">
                 {typeof value === "number" ? <AnimatedNumber value={value} digits={digits} /> : value}
               </span>
               {unit && <span className="text-xs font-medium text-fg-muted">{unit}</span>}

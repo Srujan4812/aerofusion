@@ -51,10 +51,10 @@ export function CardHeader({
     <div className={cn("relative mb-4 flex items-start justify-between gap-3", className)}>
       <div className="flex min-w-0 items-start gap-3">
         {icon && (
-          <div className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary">{icon}</div>
+          <div className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-full bg-primary-soft text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.5)]">{icon}</div>
         )}
         <div className="min-w-0">
-          <h3 className="font-display text-[15px] font-semibold leading-tight text-fg sm:text-base">{title}</h3>
+          <h3 className="font-display text-[15px] font-semibold leading-tight tracking-[-0.015em] text-fg sm:text-[17px]">{title}</h3>
           {subtitle && <p className="mt-1 text-xs leading-relaxed text-fg-muted sm:text-[13px]">{subtitle}</p>}
         </div>
       </div>

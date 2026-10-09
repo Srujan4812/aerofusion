@@ -49,7 +49,7 @@ export function PageHero({
             initial={{ opacity: 0, y: 22 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, ease: EASE, delay: 0.05 }}
-            className="font-display text-[40px] font-extrabold leading-[1.02] tracking-[-0.035em] text-fg sm:text-5xl xl:text-[56px]"
+            className="font-display text-[40px] font-bold leading-[1.04] tracking-[-0.03em] text-fg sm:text-5xl xl:text-[56px]"
           >
             {title}
           </motion.h1>
@@ -93,11 +93,11 @@ export function GlassNote({ icon, children, className }: { icon?: ReactNode; chi
   return (
     <div
       className={cn(
-        "flex max-w-[280px] items-center gap-3 rounded-2xl border border-white/50 bg-white/55 p-3.5 text-[13px] leading-snug text-fg shadow-lift backdrop-blur-xl dark:border-white/10 dark:bg-black/35",
+        "glass flex max-w-[280px] items-center gap-3 rounded-[24px] p-3.5 text-[13px] leading-snug text-fg",
         className,
       )}
     >
-      {icon && <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary [&_svg]:size-5">{icon}</div>}
+      {icon && <div className="grid size-10 shrink-0 place-items-center rounded-full bg-primary-soft text-primary [&_svg]:size-5">{icon}</div>}
       <div>{children}</div>
     </div>
   );

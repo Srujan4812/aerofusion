@@ -10,6 +10,7 @@ import { CITY_BY_SLUG } from "@/lib/cities";
 import { CommandMenu } from "./command-menu";
 import { Footer } from "./footer";
 import { Sidebar, SidebarContent } from "./sidebar";
+import { TabBar } from "./tab-bar";
 import { Topbar } from "./topbar";
 
 function MobileNav() {
@@ -30,14 +31,14 @@ function MobileNav() {
             </Dialog.Overlay>
             <Dialog.Content asChild forceMount aria-describedby={undefined}>
               <motion.div
-                className="fixed inset-y-0 left-0 z-[81] w-[288px] border-r border-border bg-bg-elevated shadow-lift lg:hidden"
+                className="glass-pop fixed inset-y-3 left-3 z-[81] w-[288px] rounded-[30px] lg:hidden"
                 initial={{ x: -300 }}
                 animate={{ x: 0 }}
                 exit={{ x: -300 }}
                 transition={{ type: "spring", stiffness: 380, damping: 38 }}
               >
                 <Dialog.Title className="sr-only">Navigation</Dialog.Title>
-                <Dialog.Close className="absolute right-3 top-5 z-10 grid size-9 place-items-center rounded-xl text-fg-muted hover:bg-surface-sunken">
+                <Dialog.Close className="absolute right-3 top-4 z-10 grid size-9 place-items-center rounded-full text-fg-muted hover:bg-surface-sunken">
                   <X className="size-5" />
                 </Dialog.Close>
                 <SidebarContent collapsed={false} onNavigate={() => setOpen(false)} />
@@ -68,7 +69,9 @@ export function AppShell({ children }: { children: ReactNode }) {
         <Topbar />
         <main className="relative flex-1 px-4 pb-10 sm:px-6 lg:px-8">{children}</main>
         <Footer />
+        <div className="h-24 lg:hidden" />
       </div>
+      <TabBar />
       <MobileNav />
       <CommandMenu />
       <Suspense fallback={null}>

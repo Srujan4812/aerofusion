@@ -3,24 +3,24 @@ import { Slot } from "radix-ui";
 import type { ButtonHTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
 
+/** Capsule buttons in the Liquid Glass style: tinted glass for primary actions, clear glass otherwise. */
 export const buttonVariants = cva(
-  "relative inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-medium transition-all duration-200 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0",
+  "relative inline-flex select-none items-center justify-center gap-2 whitespace-nowrap rounded-full text-sm font-semibold transition-[transform,filter,background,box-shadow] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.96] disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
-        primary:
-          "bg-primary text-primary-fg shadow-[0_8px_24px_-10px_var(--primary)] hover:bg-primary-strong hover:shadow-[0_10px_30px_-8px_var(--primary)]",
-        dark: "bg-fg text-bg hover:opacity-90 shadow-lift",
-        secondary: "border border-border-strong bg-surface-solid text-fg hover:bg-surface-sunken",
+        primary: "glass-tint hover:brightness-[1.06]",
+        dark: "bg-fg text-bg shadow-lift hover:opacity-90",
+        secondary: "glass text-fg hover:brightness-[1.03]",
         ghost: "text-fg-muted hover:bg-surface-sunken hover:text-fg",
         soft: "bg-primary-soft text-primary hover:brightness-95",
-        outline: "border border-border-strong text-fg hover:border-primary hover:text-primary",
+        outline: "glass text-fg hover:text-primary",
       },
       size: {
-        sm: "h-8 px-3 text-xs",
-        md: "h-10 px-4",
-        lg: "h-12 px-6 text-[15px] rounded-2xl",
-        icon: "size-9",
+        sm: "h-8 px-3.5 text-xs",
+        md: "h-10 px-4.5",
+        lg: "h-12 px-6 text-[15px]",
+        icon: "size-10",
       },
     },
     defaultVariants: { variant: "primary", size: "md" },

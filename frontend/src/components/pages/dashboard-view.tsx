@@ -90,7 +90,7 @@ export function DashboardView() {
               {nat && <AqiBadge pm={nat.avg} size="xs" />}
             </div>
             <div className="mt-1 flex items-end justify-between gap-3">
-              <div className="font-display text-4xl font-extrabold leading-none text-fg">
+              <div className="font-display text-4xl font-bold leading-none text-fg">
                 {nat ? <AnimatedNumber value={Math.round(nat.avg)} /> : "—"}
                 <span className="ml-1 text-xs font-medium text-fg-muted">µg/m³</span>
               </div>
@@ -341,7 +341,7 @@ export function DashboardView() {
                 data={nat.counts.filter((c) => c.stations > 0).map((c) => ({ key: c.key, label: c.label, value: c.stations, color: c.color }))}
                 center={
                   <div>
-                    <div className="font-display text-2xl font-extrabold text-fg">{nat.stations}</div>
+                    <div className="font-display text-2xl font-bold text-fg">{nat.stations}</div>
                     <div className="text-[11px] text-fg-muted">stations</div>
                   </div>
                 }
@@ -403,7 +403,7 @@ function AqiRing({ pm }: { pm: number }) {
         />
       </svg>
       <div className="text-center">
-        <div className="font-display text-[26px] font-extrabold leading-none text-fg">
+        <div className="font-display text-[26px] font-bold leading-none text-fg">
           <AnimatedNumber value={Math.round(pm)} />
         </div>
         <div className="mt-1 text-[10px] text-fg-muted">µg/m³</div>

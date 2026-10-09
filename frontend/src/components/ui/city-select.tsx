@@ -24,8 +24,8 @@ export function CitySelect({ className, size = "md" }: { className?: string; siz
       <Popover.Trigger asChild>
         <button
           className={cn(
-            "glass group inline-flex items-center gap-2.5 rounded-2xl border border-border text-left shadow-card transition hover:border-border-strong",
-            size === "lg" ? "h-14 min-w-[260px] px-4" : "h-11 min-w-[200px] px-3.5",
+            "glass group inline-flex items-center gap-2.5 rounded-full text-left transition hover:brightness-[1.03]",
+            size === "lg" ? "h-14 min-w-[260px] px-5" : "h-11 min-w-[200px] px-4",
             className,
           )}
         >
@@ -43,7 +43,7 @@ export function CitySelect({ className, size = "md" }: { className?: string; siz
         <Popover.Content
           align="start"
           sideOffset={8}
-          className="z-[90] w-[320px] overflow-hidden rounded-2xl border border-border-strong bg-surface-solid/95 shadow-lift backdrop-blur-xl data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:slide-in-from-top-2 data-[state=closed]:animate-out data-[state=closed]:fade-out-0"
+          className="glass-pop z-[90] w-[320px] overflow-hidden rounded-[26px] data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:slide-in-from-top-2 data-[state=closed]:animate-out data-[state=closed]:fade-out-0"
         >
           <Command loop>
             <div className="flex items-center gap-2 border-b border-border px-3">
@@ -67,7 +67,7 @@ export function CitySelect({ className, size = "md" }: { className?: string; siz
                       setCity(c.slug);
                       setOpen(false);
                     }}
-                    className="flex cursor-pointer items-center gap-2.5 rounded-xl px-2.5 py-2 text-sm outline-none data-[selected=true]:bg-primary-soft"
+                    className="flex cursor-pointer items-center gap-2.5 rounded-2xl px-2.5 py-2 text-sm outline-none data-[selected=true]:bg-surface-sunken"
                   >
                     <Check className={cn("size-4 text-primary", c.slug === slug ? "opacity-100" : "opacity-0")} />
                     <span className="min-w-0 flex-1">

@@ -66,7 +66,7 @@ export function Hero() {
               <span className="h-px w-10 bg-primary" />
               AI for cleaner air
             </motion.div>
-            <h1 className="font-display text-[44px] font-extrabold leading-[0.98] tracking-[-0.045em] text-fg sm:text-6xl xl:text-[84px]">
+            <h1 className="font-display text-[44px] font-bold leading-[1.0] tracking-[-0.04em] text-fg sm:text-6xl xl:text-[84px]">
               <Words text="Forecast the Air." />
               <br />
               <Words text="Understand the" delay={0.25} />
@@ -88,14 +88,14 @@ export function Hero() {
             <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, ease: EASE, delay: 0.85 }} className="mt-8 flex flex-wrap gap-3">
               <Link
                 href="/forecast"
-                className="group relative inline-flex h-13 items-center gap-2 overflow-hidden rounded-2xl bg-primary-strong px-6 py-3.5 text-[15px] font-semibold text-white shadow-[0_14px_34px_-12px_var(--primary)] transition hover:brightness-110 dark:text-primary-fg dark:bg-primary"
+                className="glass-tint group relative inline-flex h-13 items-center gap-2 overflow-hidden rounded-full px-7 py-3.5 text-[15px] font-semibold transition hover:brightness-110"
               >
                 <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
                 Explore forecasts <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
               </Link>
               <Link
                 href="/live-map"
-                className="glass inline-flex h-13 items-center gap-2 rounded-2xl border border-border-strong px-6 py-3.5 text-[15px] font-semibold text-fg transition hover:border-primary"
+                className="glass inline-flex h-13 items-center gap-2 rounded-full px-7 py-3.5 text-[15px] font-semibold text-fg transition hover:brightness-[1.04]"
               >
                 View live map <MapIcon className="size-4" />
               </Link>
@@ -110,7 +110,7 @@ export function Hero() {
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 2.2, duration: 0.8, ease: EASE }}
-              className="absolute right-0 top-[18%] w-[200px] rounded-2xl border border-white/30 bg-black/35 p-4 text-white shadow-lift backdrop-blur-xl"
+              className="glass absolute right-0 top-[18%] w-[204px] rounded-[26px] p-4 text-fg"
             >
               <div className="flex items-center gap-2 text-sm font-semibold">
                 <span className="relative flex size-2">
@@ -119,18 +119,18 @@ export function Hero() {
                 </span>
                 Delhi · now
               </div>
-              <div className="mt-1 text-[11px] text-white/70">PM2.5</div>
-              <div className="font-display text-3xl font-extrabold leading-none">
+              <div className="mt-1 text-[11px] text-fg-muted">PM2.5</div>
+              <div className="font-display text-3xl font-bold leading-none">
                 {delhi === null ? "—" : <AnimatedNumber value={Math.round(delhi)} />}
-                <span className="ml-1 text-xs font-medium text-white/70">µg/m³</span>
+                <span className="ml-1 text-xs font-medium text-fg-muted">µg/m³</span>
               </div>
-              {delhi !== null && <AqiBadge pm={delhi} size="xs" className="mt-2 !text-white" />}
+              {delhi !== null && <AqiBadge pm={delhi} size="xs" className="mt-2" />}
             </motion.div>
           </div>
         </motion.div>
 
         {/* scroll cue */}
-        <div className="absolute bottom-[112px] left-1/2 z-10 hidden -translate-x-1/2 flex-col items-center gap-2 text-[11px] font-medium text-fg-muted sm:flex">
+        <div className="absolute bottom-[132px] left-1/2 z-10 hidden -translate-x-1/2 flex-col items-center gap-2 text-[11px] font-medium text-fg-muted sm:flex">
           <span>Scroll — watch the smog lift</span>
           <div className="h-1 w-40 overflow-hidden rounded-full bg-fg/10">
             <motion.div style={{ width: progressWidth }} className="h-full rounded-full bg-gradient-to-r from-amber-500 via-lime-500 to-emerald-500" />
@@ -138,8 +138,8 @@ export function Hero() {
         </div>
 
         {/* stats band */}
-        <div className="absolute inset-x-0 bottom-0 z-10 border-t border-white/10 bg-[#06140f]/80 text-white backdrop-blur-xl">
-          <div className="mx-auto grid max-w-7xl grid-cols-2 gap-y-4 px-5 py-5 lg:grid-cols-4 lg:px-8">
+        <div className="absolute inset-x-3 bottom-4 z-10 sm:inset-x-6">
+          <div className="glass mx-auto grid max-w-6xl grid-cols-2 gap-y-4 rounded-[28px] px-5 py-4 lg:grid-cols-4 lg:px-8">
             {[
               { icon: <Building2 />, title: "33 Cities", sub: "Across India" },
               { icon: <Clock3 />, title: "1–48 h Forecasts", sub: "Hourly, with uncertainty" },
@@ -151,12 +151,12 @@ export function Hero() {
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 1 + i * 0.1, duration: 0.6 }}
-                className="flex items-center gap-3.5 lg:border-l lg:border-white/10 lg:pl-6 lg:first:border-l-0 lg:first:pl-0"
+                className="flex items-center gap-3.5 lg:border-l lg:border-border lg:pl-6 lg:first:border-l-0 lg:first:pl-0"
               >
-                <span className="text-emerald-300 [&_svg]:size-7 [&_svg]:stroke-[1.5]">{s.icon}</span>
+                <span className="text-primary [&_svg]:size-7 [&_svg]:stroke-[1.5]">{s.icon}</span>
                 <div>
-                  <div className="font-display text-base font-semibold sm:text-lg">{s.title}</div>
-                  <div className="text-xs text-white/60 sm:text-[13px]">{s.sub}</div>
+                  <div className="font-display text-base font-semibold text-fg sm:text-lg">{s.title}</div>
+                  <div className="text-xs text-fg-muted sm:text-[13px]">{s.sub}</div>
                 </div>
               </motion.div>
             ))}

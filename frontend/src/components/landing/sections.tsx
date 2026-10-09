@@ -39,7 +39,7 @@ export function LiveStrip() {
     [anchor],
   );
   return (
-    <section className="relative border-y border-border bg-surface-solid/60 py-5 backdrop-blur">
+    <section className="relative py-6">
       <div className="mx-auto mb-3 flex max-w-7xl items-center gap-2 px-5 text-xs font-semibold uppercase tracking-[0.2em] text-fg-subtle lg:px-8">
         <span className="relative flex size-2">
           <span className="absolute inset-0 animate-pulse-ring rounded-full bg-emerald-500" />
@@ -53,7 +53,7 @@ export function LiveStrip() {
             <Link
               key={`${c.slug}-${i}`}
               href={`/forecast?city=${c.slug}`}
-              className="flex items-center gap-3 rounded-2xl border border-border bg-surface-solid px-4 py-2.5 shadow-card transition hover:-translate-y-0.5 hover:border-border-strong"
+              className="glass flex items-center gap-3 rounded-full px-4 py-2.5 transition duration-300 hover:-translate-y-0.5"
             >
               <span className="size-2.5 rounded-full" style={{ background: categoryForPm(v).color }} />
               <span className="text-sm font-semibold text-fg">{c.name}</span>
@@ -109,7 +109,7 @@ export function FeatureBento() {
     <section className="mx-auto max-w-7xl px-5 py-24 lg:px-8">
       <motion.div initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.7 }} className="mb-12 max-w-2xl">
         <div className="mb-4 text-xs font-bold uppercase tracking-[0.3em] text-primary">Inside the dashboard</div>
-        <h2 className="font-display text-4xl font-extrabold leading-[1.05] tracking-[-0.035em] text-fg sm:text-5xl">
+        <h2 className="font-display text-4xl font-bold leading-[1.05] tracking-[-0.035em] text-fg sm:text-5xl">
           From a single number to a <span className="text-gradient">decision.</span>
         </h2>
       </motion.div>
@@ -190,7 +190,7 @@ export function FeatureBento() {
 
 function Badge({ icon, label }: { icon: ReactNode; label: string }) {
   return (
-    <span className="inline-flex items-center gap-2 rounded-full bg-primary-soft px-3 py-1 text-xs font-semibold text-primary">
+    <span className="glass inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold text-primary">
       {icon}
       {label}
     </span>
@@ -211,7 +211,7 @@ export function Impact() {
       <div className="mx-auto max-w-7xl px-5 lg:px-8">
         <motion.div initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="mb-10 max-w-2xl">
           <div className="mb-4 text-xs font-bold uppercase tracking-[0.3em] text-primary">Why it matters</div>
-          <h2 className="font-display text-4xl font-extrabold leading-[1.05] tracking-[-0.035em] text-fg sm:text-5xl">Built for people, not leaderboards.</h2>
+          <h2 className="font-display text-4xl font-bold leading-[1.05] tracking-[-0.035em] text-fg sm:text-5xl">Built for people, not leaderboards.</h2>
         </motion.div>
         <div className="grid gap-4 md:grid-cols-3">
           {sdgs.map((s, i) => (
@@ -263,30 +263,30 @@ export function FinalCta() {
         whileInView={{ opacity: 1, y: 0, scale: 1 }}
         viewport={{ once: true }}
         transition={{ duration: 0.9, ease: EASE }}
-        className="relative mx-auto max-w-7xl overflow-hidden rounded-[36px] bg-[#05140e] px-6 py-16 text-white sm:px-14"
+        className="relative mx-auto max-w-7xl overflow-hidden rounded-[40px] bg-gradient-to-br from-[#0e1a2b] via-[#141a36] to-[#1d1438] px-6 py-16 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_40px_80px_-30px_rgba(20,20,60,0.5)] sm:px-14"
       >
-        <div className="absolute -left-20 -top-24 size-[420px] animate-aurora rounded-full bg-emerald-500/30 blur-[90px]" />
-        <div className="absolute -bottom-32 right-0 size-[460px] animate-aurora rounded-full bg-teal-400/20 blur-[100px] [animation-delay:-6s]" />
+        <div className="absolute -left-20 -top-24 size-[420px] animate-aurora rounded-full bg-teal-400/30 blur-[90px]" />
+        <div className="absolute -bottom-32 right-0 size-[460px] animate-aurora rounded-full bg-violet-400/25 blur-[100px] [animation-delay:-6s]" />
         <div className="relative grid items-center gap-10 lg:grid-cols-[1.3fr_1fr]">
           <div>
-            <h2 className="font-display text-4xl font-extrabold leading-[1.05] tracking-[-0.035em] sm:text-5xl">
+            <h2 className="font-display text-4xl font-bold leading-[1.05] tracking-[-0.035em] sm:text-5xl">
               Breathe easier.
               <br />
-              <span className="bg-gradient-to-r from-emerald-300 to-teal-200 bg-clip-text text-transparent">Know what’s coming.</span>
+              <span className="bg-gradient-to-r from-teal-200 via-sky-200 to-violet-200 bg-clip-text text-transparent">Know what’s coming.</span>
             </h2>
             <p className="mt-4 max-w-lg text-white/70">Open the dashboard to explore forecasts, maps and explanations for 33 Indian cities.</p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <Link href="/dashboard" className="group inline-flex items-center gap-2 rounded-2xl bg-white px-6 py-3.5 text-[15px] font-semibold text-[#05140e] transition hover:bg-emerald-50">
+              <Link href="/dashboard" className="group inline-flex items-center gap-2 rounded-full bg-white px-7 py-3.5 text-[15px] font-semibold text-[#0e1a2b] shadow-[inset_0_-1px_0_rgba(0,0,0,0.08)] transition hover:bg-white/90">
                 Open Dashboard <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
               </Link>
-              <Link href="/about" className="inline-flex items-center gap-2 rounded-2xl border border-white/20 px-6 py-3.5 text-[15px] font-semibold text-white transition hover:bg-white/10">
+              <Link href="/about" className="inline-flex items-center gap-2 rounded-full bg-white/10 px-7 py-3.5 text-[15px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.25),inset_0_0_0_0.5px_rgba(255,255,255,0.2)] backdrop-blur-xl transition hover:bg-white/15">
                 About the project
               </Link>
             </div>
           </div>
-          <div className="rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur">
+          <div className="rounded-[30px] bg-white/[0.07] p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.22),inset_0_0_0_0.5px_rgba(255,255,255,0.14)] backdrop-blur-2xl">
             <div className="text-sm text-white/60">Cities above the 24-h NAAQS right now</div>
-            <div className="mt-2 font-display text-6xl font-extrabold">
+            <div className="mt-2 font-display text-6xl font-bold">
               {n === null ? "—" : <AnimatedNumber value={n} />}
               <span className="text-2xl text-white/50"> / {CITIES.length}</span>
             </div>

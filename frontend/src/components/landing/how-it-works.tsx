@@ -169,7 +169,7 @@ export function HowItWorks() {
         <div className="lg:sticky lg:top-28 lg:self-start">
           <motion.div initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.7 }}>
             <div className="mb-4 text-xs font-bold uppercase tracking-[0.3em] text-primary">How it works</div>
-            <h2 className="font-display text-4xl font-extrabold leading-[1.05] tracking-[-0.035em] text-fg sm:text-5xl">
+            <h2 className="font-display text-4xl font-bold leading-[1.05] tracking-[-0.035em] text-fg sm:text-5xl">
               Six ideas.
               <br />
               <span className="text-gradient">One forecast you can trust.</span>
@@ -179,7 +179,7 @@ export function HowItWorks() {
             </p>
             <div className="mt-8 flex flex-wrap gap-2">
               {["PyTorch", "Wavelets", "Graph NN", "ConvLSTM", "Transformer", "Quantile loss"].map((t) => (
-                <span key={t} className="rounded-full border border-border bg-surface-solid/70 px-3 py-1 text-xs font-medium text-fg-muted">
+                <span key={t} className="glass rounded-full px-3 py-1 text-xs font-medium text-fg-muted">
                   {t}
                 </span>
               ))}

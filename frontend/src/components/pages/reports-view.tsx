@@ -367,7 +367,7 @@ function CityReport({ anchor }: { anchor: number }) {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <div className="text-xs font-semibold uppercase tracking-[0.14em] text-fg-subtle">City air-quality report</div>
-            <h2 className="mt-1 font-display text-3xl font-extrabold tracking-tight text-fg">{city.name}</h2>
+            <h2 className="mt-1 font-display text-3xl font-bold tracking-tight text-fg">{city.name}</h2>
             <div className="text-sm text-fg-muted">
               {city.state} · last 30 days · generated {fmtDateTime(anchor)}
             </div>

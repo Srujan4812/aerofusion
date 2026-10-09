@@ -523,8 +523,8 @@ export function AtmosMap({
                 <div
                   key={`l-${c.slug}`}
                   className={cn(
-                    "pointer-events-none absolute whitespace-nowrap rounded-lg px-1.5 py-0.5 text-[10.5px] font-semibold leading-tight shadow-sm backdrop-blur-md transition-[background] duration-300",
-                    isSel ? "z-10 bg-fg text-bg" : "bg-surface-solid/80 text-fg ring-1 ring-border",
+                    "pointer-events-none absolute whitespace-nowrap rounded-full px-2 py-0.5 text-[10.5px] font-semibold leading-tight transition-[background] duration-300",
+                    isSel ? "z-10 bg-fg text-bg" : "bg-[var(--lg-fill-strong)] text-fg shadow-[inset_0_0_0_0.5px_var(--lg-rim),0_2px_8px_rgb(var(--shadow-rgb)/0.14)]",
                   )}
                   style={{ left: x + 9, top: y - 9 }}
                 >
@@ -545,7 +545,7 @@ export function AtmosMap({
                 className="pointer-events-none absolute -translate-x-1/2 -translate-y-full"
                 style={{ left: x, top: y - 6 }}
               >
-                <div className="rounded-xl border border-white/40 bg-surface-solid/90 px-2.5 py-1.5 text-center shadow-lift backdrop-blur-md">
+                <div className="glass rounded-2xl px-2.5 py-1.5 text-center">
                   <div className="text-[11px] font-semibold text-fg">{hl.label}</div>
                   {hl.sublabel && (
                     <div className="text-[11px] font-bold tabular" style={{ color: hl.color ?? "var(--danger)" }}>
@@ -568,7 +568,7 @@ export function AtmosMap({
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 4 }}
                 transition={{ duration: 0.15 }}
-                className="pointer-events-none absolute z-20 min-w-[150px] rounded-2xl border border-border-strong bg-surface-solid/95 px-3 py-2.5 text-xs shadow-lift backdrop-blur-xl"
+                className="glass-pop pointer-events-none absolute z-20 min-w-[150px] rounded-[20px] px-3 py-2.5 text-xs"
                 style={{ left: Math.min(hover.x + 14, w - 170), top: Math.max(8, hover.y - 70) }}
               >
                 <div className="font-display text-[13px] font-semibold text-fg">{hover.city.name}</div>
@@ -588,14 +588,14 @@ export function AtmosMap({
       )}
 
       {controls && zoomable && ready && (
-        <div className="absolute bottom-3 left-3 z-10 flex flex-col overflow-hidden rounded-xl border border-border bg-surface-solid/85 shadow-card backdrop-blur-md">
-          <button onClick={() => zoomBy(1.6)} className="grid size-8 place-items-center text-fg-muted hover:bg-surface-sunken hover:text-fg" aria-label="Zoom in">
+        <div className="glass absolute bottom-3 left-3 z-10 flex flex-col overflow-hidden rounded-full p-0.5">
+          <button onClick={() => zoomBy(1.6)} className="grid size-8 place-items-center rounded-full text-fg-muted hover:bg-surface-sunken hover:text-fg" aria-label="Zoom in">
             <Plus className="size-4" />
           </button>
-          <button onClick={() => zoomBy(1 / 1.6)} className="grid size-8 place-items-center border-y border-border text-fg-muted hover:bg-surface-sunken hover:text-fg" aria-label="Zoom out">
+          <button onClick={() => zoomBy(1 / 1.6)} className="grid size-8 place-items-center rounded-full text-fg-muted hover:bg-surface-sunken hover:text-fg" aria-label="Zoom out">
             <Minus className="size-4" />
           </button>
-          <button onClick={resetZoom} className="grid size-8 place-items-center text-fg-muted hover:bg-surface-sunken hover:text-fg" aria-label="Reset view">
+          <button onClick={resetZoom} className="grid size-8 place-items-center rounded-full text-fg-muted hover:bg-surface-sunken hover:text-fg" aria-label="Reset view">
             <RotateCcw className="size-3.5" />
           </button>
         </div>
@@ -621,7 +621,7 @@ export function HeatLegend({ metric = "pm", title, className }: { metric?: Field
   const s = stops[metric];
   const gradient = `linear-gradient(90deg, ${s.map((v, i) => `${metricColor(metric, v)} ${(i / (s.length - 1)) * 100}%`).join(", ")})`;
   return (
-    <div className={cn("rounded-xl border border-border bg-surface-solid/85 px-3 py-2 shadow-card backdrop-blur-md", className)}>
+    <div className={cn("glass rounded-[18px] px-3.5 py-2.5", className)}>
       {title && <div className="mb-1.5 text-[10.5px] font-semibold text-fg">{title}</div>}
       <div className="h-2 w-48 rounded-full" style={{ background: gradient }} />
       <div className="mt-1 flex w-48 justify-between text-[9.5px] tabular text-fg-subtle">

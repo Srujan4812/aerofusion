@@ -109,7 +109,7 @@ export function LiveMapView() {
       {/* Header */}
       <div className="mb-5 flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
         <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
-          <h1 className="font-display text-4xl font-extrabold tracking-[-0.035em] text-fg sm:text-[44px]">
+          <h1 className="font-display text-4xl font-bold tracking-[-0.035em] text-fg sm:text-[44px]">
             Live Air Quality <span className="text-gradient">Map</span>
           </h1>
           <p className="mt-2 max-w-xl text-[15px] text-fg-muted">
@@ -149,17 +149,17 @@ export function LiveMapView() {
           )}
 
           {/* metric switcher */}
-          <div className="absolute left-4 top-4 z-10 flex flex-col gap-1 rounded-2xl border border-border bg-surface-solid/85 p-1.5 shadow-card backdrop-blur-md">
+          <div className="glass absolute left-4 top-4 z-10 flex flex-col gap-1 rounded-[24px] p-1.5">
             {METRICS.map((m) => (
               <button
                 key={m.value}
                 onClick={() => setMetric(m.value)}
                 className={cn(
-                  "relative flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium transition-colors",
+                  "relative flex items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold transition-colors",
                   metric === m.value ? "text-primary" : "text-fg-muted hover:text-fg",
                 )}
               >
-                {metric === m.value && <motion.span layoutId="metric-pill" className="absolute inset-0 rounded-xl bg-primary-soft" />}
+                {metric === m.value && <motion.span layoutId="metric-pill" className="glass-strong absolute inset-0 rounded-full" transition={{ type: "spring", stiffness: 480, damping: 36 }} />}
                 <span className="relative">{m.icon}</span>
                 <span className="relative">{m.label}</span>
               </button>
@@ -167,7 +167,7 @@ export function LiveMapView() {
           </div>
 
           {/* layers */}
-          <div className="absolute right-4 top-4 z-10 w-[230px] overflow-hidden rounded-2xl border border-border bg-surface-solid/88 shadow-card backdrop-blur-md">
+          <div className="glass absolute right-4 top-4 z-10 w-[236px] overflow-hidden rounded-[24px]">
             <button onClick={() => setLayersOpen((o) => !o)} className="flex w-full items-center gap-2 px-3.5 py-2.5 text-sm font-semibold text-fg">
               <Layers className="size-4 text-primary" /> Layers
               <span className={cn("ml-auto text-fg-subtle transition-transform", layersOpen && "rotate-180")}>⌄</span>
@@ -185,7 +185,7 @@ export function LiveMapView() {
                         ["labels", "City labels", "#64748b"],
                       ] as const
                     ).map(([key, label, color]) => (
-                      <label key={key} className="flex cursor-pointer items-center gap-2.5 rounded-lg px-1.5 py-1.5 text-xs text-fg-muted hover:bg-surface-sunken">
+                      <label key={key} className="flex cursor-pointer items-center gap-2.5 rounded-xl px-1.5 py-1.5 text-xs text-fg-muted hover:bg-surface-sunken">
                         <span className="size-2 rounded-full" style={{ background: color }} />
                         <span className="flex-1">{label}</span>
                         <Switch checked={layers[key]} onChange={(v) => setLayers((l) => ({ ...l, [key]: v }))} color={color} aria-label={label} />
@@ -203,10 +203,10 @@ export function LiveMapView() {
           </div>
 
           {/* timeline */}
-          <div className="absolute inset-x-4 bottom-4 z-10 mx-auto flex max-w-[640px] items-center gap-3 rounded-2xl border border-border bg-surface-solid/90 px-3 py-2.5 shadow-lift backdrop-blur-md">
+          <div className="glass absolute inset-x-4 bottom-4 z-10 mx-auto flex max-w-[640px] items-center gap-3 rounded-full py-2 pl-2 pr-3">
             <button
               onClick={() => setPlaying((p) => !p)}
-              className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary text-primary-fg shadow-[0_6px_16px_-6px_var(--primary)] transition hover:brightness-110"
+              className="glass-tint grid size-10 shrink-0 place-items-center rounded-full transition hover:brightness-110"
               aria-label={playing ? "Pause" : "Play"}
             >
               {playing ? <Pause className="size-4" /> : <Play className="size-4 translate-x-[1px]" />}
@@ -221,7 +221,7 @@ export function LiveMapView() {
               </div>
               <Slider value={offset} onChange={setOffset} min={-24} max={48} step={1} color={offset <= 0 ? "#10b981" : "#0ea5e9"} aria-label="Time" />
             </div>
-            <button onClick={() => setOffset(0)} className="shrink-0 rounded-lg px-2 py-1 text-[11px] font-semibold text-fg-muted hover:bg-surface-sunken hover:text-fg">
+            <button onClick={() => setOffset(0)} className="shrink-0 rounded-full px-3 py-1.5 text-[11px] font-semibold text-fg-muted hover:bg-surface-sunken hover:text-fg">
               Live
             </button>
           </div>
@@ -238,7 +238,7 @@ export function LiveMapView() {
               </div>
               <div className="absolute bottom-3 right-3 rounded-2xl bg-white/80 px-3 py-2 text-right shadow-lift backdrop-blur-md dark:bg-black/45">
                 <div className="text-[10px] font-semibold text-fg-muted">PM2.5</div>
-                <div className="font-display text-2xl font-extrabold leading-none text-fg">
+                <div className="font-display text-2xl font-bold leading-none text-fg">
                   <AnimatedNumber value={Math.round(selPm)} />
                   <span className="ml-1 text-[11px] font-medium text-fg-muted">µg/m³</span>
                 </div>
@@ -310,7 +310,7 @@ export function LiveMapView() {
               data={state.counts}
               center={
                 <div>
-                  <div className="font-display text-3xl font-extrabold text-fg tabular">{state.stations}</div>
+                  <div className="font-display text-3xl font-bold text-fg tabular">{state.stations}</div>
                   <div className="text-[11px] text-fg-muted">stations</div>
                 </div>
               }

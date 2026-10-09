@@ -34,3 +34,7 @@
 ## Integrity rules (keep these)
 - Demo values are simulated and labelled "Demo data" in the UI. Never present them as model results.
 - Model Lab numbers are illustrative until `ml/runs/<run_id>/metrics.json` exists; UI shows a banner while `METRICS_STATUS !== "measured"`.
+
+## In progress (2026-10-09)
+- [~] Liquid Glass redesign (Apple-style): material tokens, floating nav, glass controls, pastel ambient bg, light/dark
+- [~] Backend: `backend/app/{schemas,config}.py` + `backend/app/sim/*` (bit-exact port of TS simulator) done; providers/routers/main/tests TODO

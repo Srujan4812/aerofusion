@@ -9,6 +9,12 @@ export interface SegmentedOption<T extends string> {
   label: ReactNode;
 }
 
+const SPRING = { type: "spring", stiffness: 520, damping: 38, mass: 0.9 } as const;
+
+/**
+ * Apple-style segmented control: a recessed glass track with a bright glass "lens" thumb
+ * that slides between segments.
+ */
 export function Segmented<T extends string>({
   value,
   onChange,
@@ -22,6 +28,7 @@ export function Segmented<T extends string>({
   options: SegmentedOption<T>[];
   size?: "sm" | "md";
   className?: string;
+  /** "primary" tints the thumb label with the accent colour. */
   variant?: "surface" | "primary";
 }) {
   const id = useId();
@@ -29,9 +36,10 @@ export function Segmented<T extends string>({
     <div
       role="tablist"
       className={cn(
-        "relative inline-flex items-center gap-0.5 rounded-xl border border-border bg-surface-sunken/70 p-1",
+        "relative inline-flex items-center gap-0.5 rounded-full p-[3px] shadow-[inset_0_1px_2px_rgb(var(--shadow-rgb)/0.08)]",
         className,
       )}
+      style={{ background: "var(--seg-track)" }}
     >
       {options.map((o) => {
         const active = o.value === value;
@@ -42,21 +50,12 @@ export function Segmented<T extends string>({
             aria-selected={active}
             onClick={() => onChange(o.value)}
             className={cn(
-              "relative z-0 rounded-[9px] font-medium transition-colors duration-200",
-              size === "sm" ? "px-2.5 py-1 text-[11px]" : "px-3.5 py-1.5 text-xs",
-              active ? (variant === "primary" ? "text-primary-fg" : "text-fg") : "text-fg-muted hover:text-fg",
+              "relative z-0 rounded-full font-semibold transition-colors duration-300",
+              size === "sm" ? "px-3 py-1 text-[11px]" : "px-4 py-1.5 text-xs",
+              active ? (variant === "primary" ? "text-primary" : "text-fg") : "text-fg-muted hover:text-fg",
             )}
           >
-            {active && (
-              <motion.span
-                layoutId={`seg-${id}`}
-                className={cn(
-                  "absolute inset-0 -z-10 rounded-[9px]",
-                  variant === "primary" ? "bg-primary shadow-[0_6px_18px_-8px_var(--primary)]" : "bg-surface-solid shadow-card",
-                )}
-                transition={{ type: "spring", stiffness: 480, damping: 36 }}
-              />
-            )}
+            {active && <motion.span layoutId={`seg-${id}`} className="glass-strong absolute inset-0 -z-10 rounded-full" transition={SPRING} />}
             {o.label}
           </button>
         );
@@ -65,6 +64,7 @@ export function Segmented<T extends string>({
   );
 }
 
+/** Larger floating glass tab strip used under page titles. */
 export function PillTabs<T extends string>({
   value,
   onChange,
@@ -78,7 +78,7 @@ export function PillTabs<T extends string>({
 }) {
   const id = useId();
   return (
-    <div className={cn("glass inline-flex flex-wrap items-center gap-1 rounded-2xl border border-border p-1.5 shadow-card", className)}>
+    <div className={cn("glass inline-flex max-w-full items-center gap-1 overflow-x-auto rounded-full p-1.5 scrollbar-none", className)}>
       {options.map((o) => {
         const active = o.value === value;
         return (
@@ -86,17 +86,11 @@ export function PillTabs<T extends string>({
             key={o.value}
             onClick={() => onChange(o.value)}
             className={cn(
-              "relative z-0 rounded-xl px-4 py-2 text-[13px] font-medium transition-colors duration-200",
-              active ? "text-primary-fg" : "text-fg-muted hover:text-fg",
+              "relative z-0 shrink-0 rounded-full px-4 py-2 text-[13px] font-semibold transition-colors duration-300",
+              active ? "text-fg" : "text-fg-muted hover:text-fg",
             )}
           >
-            {active && (
-              <motion.span
-                layoutId={`pill-${id}`}
-                className="absolute inset-0 -z-10 rounded-xl bg-primary shadow-[0_8px_22px_-10px_var(--primary)]"
-                transition={{ type: "spring", stiffness: 420, damping: 34 }}
-              />
-            )}
+            {active && <motion.span layoutId={`pill-${id}`} className="glass-strong absolute inset-0 -z-10 rounded-full" transition={SPRING} />}
             {o.label}
           </button>
         );

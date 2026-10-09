@@ -14,7 +14,7 @@ export function ChartTip({ title, rows, footer, className }: { title?: ReactNode
   return (
     <div
       className={cn(
-        "min-w-[170px] rounded-2xl border border-border-strong bg-surface-solid/92 px-3.5 py-2.5 text-xs shadow-lift backdrop-blur-xl",
+        "glass-pop min-w-[170px] rounded-[18px] px-3.5 py-2.5 text-xs",
         className,
       )}
     >

@@ -454,10 +454,10 @@ function NetworkPath({ dark, seed, labels }: { dark: boolean; seed: number; labe
           {labels?.[i] && (
             <g transform={`translate(${p.x - 64},${p.y - 66})`}>
               <rect width={128} height={44} rx={10} fill={dark ? "rgba(8,20,18,0.72)" : "rgba(255,255,255,0.78)"} stroke={dark ? "rgba(94,234,212,0.25)" : "rgba(255,255,255,0.9)"} />
-              <text x={12} y={19} fontSize={13.5} fontWeight={600} fill={dark ? "#e6f1eb" : "#0b1f17"} fontFamily="var(--font-jakarta)">
+              <text x={12} y={19} fontSize={13.5} fontWeight={600} fill={dark ? "#e6f1eb" : "#0b1f17"} fontFamily="-apple-system, BlinkMacSystemFont, var(--font-inter), sans-serif">
                 {labels[i].title}
               </text>
-              <text x={12} y={34} fontSize={10.5} fill={dark ? "#94a89f" : "#55675f"} fontFamily="var(--font-inter)">
+              <text x={12} y={34} fontSize={10.5} fill={dark ? "#94a89f" : "#55675f"} fontFamily="-apple-system, BlinkMacSystemFont, var(--font-inter), sans-serif">
                 {labels[i].subtitle}
               </text>
             </g>

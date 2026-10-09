@@ -120,8 +120,8 @@ export function ArchitectureDiagram() {
                 onMouseLeave={() => setHover(null)}
                 onClick={() => setSel(n.id)}
                 className={cn(
-                  "absolute flex items-center gap-2 rounded-2xl border bg-surface-solid/90 px-2.5 text-left shadow-card backdrop-blur-md transition-[box-shadow,border-color] duration-300",
-                  isActive ? "border-transparent" : "border-border hover:border-border-strong",
+                  "glass absolute flex items-center gap-2 rounded-[20px] px-2.5 text-left transition-[box-shadow] duration-300",
+                  isActive ? "" : "",
                 )}
                 style={{
                   left: `${(n.x / VB.w) * 100}%`,

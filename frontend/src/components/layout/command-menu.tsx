@@ -15,7 +15,7 @@ import { ALL_NAV } from "@/lib/nav";
 import { pmAt } from "@/lib/sim/core";
 
 const itemCls =
-  "group flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-fg-muted outline-none transition-colors data-[selected=true]:bg-primary-soft data-[selected=true]:text-fg";
+  "group flex cursor-pointer items-center gap-3 rounded-2xl px-3 py-2.5 text-sm text-fg-muted outline-none transition-colors data-[selected=true]:bg-surface-sunken data-[selected=true]:text-fg";
 
 export function CommandMenu() {
   const open = useAppStore((s) => s.commandOpen);
@@ -58,7 +58,7 @@ export function CommandMenu() {
           <Dialog.Portal forceMount>
             <Dialog.Overlay asChild forceMount>
               <motion.div
-                className="fixed inset-0 z-[100] bg-black/30 backdrop-blur-sm"
+                className="fixed inset-0 z-[100] bg-black/20 backdrop-blur-[2px] dark:bg-black/40"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
@@ -66,7 +66,7 @@ export function CommandMenu() {
             </Dialog.Overlay>
             <Dialog.Content asChild forceMount aria-describedby={undefined}>
               <motion.div
-                className="fixed left-1/2 top-[14vh] z-[101] w-[min(640px,calc(100vw-2rem))] -translate-x-1/2 overflow-hidden rounded-3xl border border-border-strong bg-surface-solid/95 shadow-lift backdrop-blur-2xl"
+                className="glass-pop fixed left-1/2 top-[14vh] z-[101] w-[min(640px,calc(100vw-2rem))] -translate-x-1/2 overflow-hidden rounded-[30px]"
                 initial={{ opacity: 0, y: -12, scale: 0.97 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -8, scale: 0.98 }}
@@ -88,7 +88,7 @@ export function CommandMenu() {
                     <Command.Group heading="Pages" className="[&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-2 [&_[cmdk-group-heading]]:text-[10.5px] [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-[0.14em] [&_[cmdk-group-heading]]:text-fg-subtle">
                       {ALL_NAV.map((n) => (
                         <Command.Item key={n.href} value={`${n.label} ${n.description}`} onSelect={() => go(n.href)} className={itemCls}>
-                          <span className="grid size-8 place-items-center rounded-lg bg-surface-sunken text-fg-muted group-data-[selected=true]:bg-primary group-data-[selected=true]:text-primary-fg">
+                          <span className="grid size-8 place-items-center rounded-full bg-surface-sunken text-fg-muted transition group-data-[selected=true]:bg-primary group-data-[selected=true]:text-primary-fg">
                             <n.icon className="size-4" />
                           </span>
                           <span className="flex-1">

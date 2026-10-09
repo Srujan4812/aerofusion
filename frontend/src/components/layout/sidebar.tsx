@@ -11,6 +11,8 @@ import { NAV_FOOTER, NAV_GROUPS, type NavItem } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 import { Logo } from "./logo";
 
+const SPRING = { type: "spring", stiffness: 480, damping: 38 } as const;
+
 function NavLink({ item, collapsed, onNavigate }: { item: NavItem; collapsed: boolean; onNavigate?: () => void }) {
   const pathname = usePathname();
   const active = pathname === item.href || pathname.startsWith(item.href + "/");
@@ -20,24 +22,15 @@ function NavLink({ item, collapsed, onNavigate }: { item: NavItem; collapsed: bo
       href={item.href}
       onClick={onNavigate}
       className={cn(
-        "group relative flex h-11 items-center gap-3 rounded-xl px-3 text-[14px] font-medium transition-colors duration-200",
-        active ? "text-primary" : "text-fg-muted hover:text-fg",
+        "group relative flex h-11 items-center gap-3 rounded-2xl px-3 text-[14px] font-medium transition-colors duration-300",
+        active ? "text-fg" : "text-fg-muted hover:text-fg",
         collapsed && "justify-center px-0",
       )}
     >
-      {active && (
-        <motion.span
-          layoutId="nav-active"
-          className="absolute inset-0 rounded-xl bg-primary-soft ring-1 ring-primary/10"
-          transition={{ type: "spring", stiffness: 420, damping: 36 }}
-        />
-      )}
-      {!active && <span className="absolute inset-0 rounded-xl bg-surface-sunken opacity-0 transition-opacity duration-200 group-hover:opacity-100" />}
-      <Icon className={cn("relative size-[18px] shrink-0 transition-transform duration-300 group-hover:scale-110", active && "drop-shadow-[0_0_6px_var(--ring)]")} />
+      {active && <motion.span layoutId="nav-lens" className="glass-strong absolute inset-0 rounded-2xl" transition={SPRING} />}
+      {!active && <span className="absolute inset-0 rounded-2xl bg-surface-sunken opacity-0 transition-opacity duration-300 group-hover:opacity-70" />}
+      <Icon className={cn("relative size-[19px] shrink-0 stroke-[1.75] transition-transform duration-300 group-hover:scale-110", active && "text-primary")} />
       {!collapsed && <span className="relative truncate">{item.label}</span>}
-      {active && !collapsed && (
-        <motion.span layoutId="nav-dot" className="relative ml-auto size-1.5 rounded-full bg-primary" />
-      )}
     </Link>
   );
   return collapsed ? (
@@ -52,14 +45,14 @@ function NavLink({ item, collapsed, onNavigate }: { item: NavItem; collapsed: bo
 export function SidebarContent({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: () => void }) {
   return (
     <div className="flex h-full flex-col">
-      <Link href="/" className={cn("flex h-[76px] shrink-0 items-center px-5", collapsed && "justify-center px-0")}>
+      <Link href="/" className={cn("flex h-[68px] shrink-0 items-center px-5", collapsed && "justify-center px-0")}>
         <Logo compact={collapsed} />
       </Link>
-      <nav className="scrollbar-none flex-1 overflow-y-auto px-3 pb-4" data-lenis-prevent>
+      <nav className="scrollbar-none flex-1 overflow-y-auto px-3 pb-3" data-lenis-prevent>
         {NAV_GROUPS.map((g) => (
-          <div key={g.label} className="mt-3 first:mt-1">
+          <div key={g.label} className="mt-3 first:mt-0">
             {!collapsed ? (
-              <div className="mb-1.5 px-3 text-[10.5px] font-semibold uppercase tracking-[0.16em] text-fg-subtle">{g.label}</div>
+              <div className="mb-1 px-3 text-[11.5px] font-semibold text-fg-subtle">{g.label}</div>
             ) : (
               <div className="mx-auto mb-2 mt-4 h-px w-6 bg-border-strong" />
             )}
@@ -70,7 +63,8 @@ export function SidebarContent({ collapsed, onNavigate }: { collapsed: boolean; 
             </div>
           </div>
         ))}
-        <div className="mt-3 space-y-0.5 border-t border-border pt-3">
+        <div className="mx-3 my-3 h-px bg-border" />
+        <div className="space-y-0.5">
           {NAV_FOOTER.map((item) => (
             <NavLink key={item.href} item={item} collapsed={collapsed} onNavigate={onNavigate} />
           ))}
@@ -83,13 +77,13 @@ export function SidebarContent({ collapsed, onNavigate }: { collapsed: boolean; 
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 12 }}
             transition={{ duration: 0.3 }}
-            className="relative mx-3 mb-3 h-[188px] shrink-0 overflow-hidden rounded-[22px] border border-border shadow-card"
+            className="relative mx-3 mb-3 h-[172px] shrink-0 overflow-hidden rounded-[22px] shadow-[inset_0_0_0_0.5px_var(--lg-rim)]"
           >
             <SkyScene pm={18} landmark="vidhana" seed={3} className="absolute inset-0" particles={false} />
-            <div className="absolute inset-0 bg-gradient-to-b from-white/70 via-white/10 to-transparent dark:from-black/60 dark:via-black/10" />
+            <div className="absolute inset-0 bg-gradient-to-b from-white/75 via-white/15 to-transparent dark:from-black/55 dark:via-black/10" />
             <div className="relative p-4">
               <div className="text-[11px] font-medium text-fg-muted">AI for</div>
-              <div className="font-display text-[19px] font-bold leading-[1.1] text-fg">
+              <div className="font-display text-[18px] font-semibold leading-[1.15] text-fg">
                 Cleaner Air,
                 <br />
                 Healthier Tomorrows
@@ -103,24 +97,27 @@ export function SidebarContent({ collapsed, onNavigate }: { collapsed: boolean; 
   );
 }
 
+/** Floating, inset glass sidebar (iPadOS / macOS 26 style). */
 export function Sidebar() {
   const collapsed = useAppStore((s) => s.sidebarCollapsed);
   const toggle = useAppStore((s) => s.toggleSidebar);
   return (
     <motion.aside
       initial={false}
-      animate={{ width: collapsed ? 84 : 264 }}
+      animate={{ width: collapsed ? 96 : 284 }}
       transition={{ type: "spring", stiffness: 300, damping: 34 }}
-      className="glass sticky top-0 z-40 hidden h-dvh shrink-0 border-r border-border lg:block"
+      className="sticky top-0 z-40 hidden h-dvh shrink-0 p-3 pr-0 lg:block"
     >
-      <SidebarContent collapsed={collapsed} />
-      <button
-        onClick={toggle}
-        aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-        className="absolute -right-3 top-[88px] grid size-6 place-items-center rounded-full border border-border-strong bg-surface-solid text-fg-muted shadow-card transition hover:text-primary"
-      >
-        <ChevronsLeft className={cn("size-3.5 transition-transform duration-300", collapsed && "rotate-180")} />
-      </button>
+      <div className="glass relative h-full rounded-[30px]">
+        <SidebarContent collapsed={collapsed} />
+        <button
+          onClick={toggle}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          className="glass-strong absolute -right-3 top-[82px] grid size-7 place-items-center rounded-full text-fg-muted transition hover:text-fg"
+        >
+          <ChevronsLeft className={cn("size-3.5 transition-transform duration-300", collapsed && "rotate-180")} />
+        </button>
+      </div>
     </motion.aside>
   );
 }
