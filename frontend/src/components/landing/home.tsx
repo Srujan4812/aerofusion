@@ -24,7 +24,6 @@ import Link from "next/link";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Area, AreaChart, ReferenceDot, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { LogoMark } from "@/components/layout/logo";
-import { MiniIndia } from "@/components/map/mini-india";
 import { AqiBadge } from "@/components/ui/badge";
 import { AnimatedNumber } from "@/components/ui/primitives";
 import { useAnchor } from "@/hooks/use-anchor";
@@ -389,31 +388,6 @@ function DataSourcesCard() {
   );
 }
 
-function Globe({ anchor }: { anchor: number | null }) {
-  const pts = useMemo(
-    () =>
-      anchor === null
-        ? []
-        : CITIES.filter((_, i) => i % 2 === 0).map((c) => {
-            const v = pmAt(c, anchor);
-            return { id: c.slug, lat: c.lat, lon: c.lon, color: categoryForPm(v).color, r: v > 90 ? 9 : 6, pulse: v > 90 };
-          }),
-    [anchor],
-  );
-  return (
-    <motion.div {...reveal} className="relative mx-auto aspect-square w-full max-w-[340px]">
-      <div className="absolute -inset-6 rounded-full bg-sky-400/25 blur-3xl" />
-      <div className="absolute inset-0 overflow-hidden rounded-full bg-[radial-gradient(circle_at_32%_28%,#3b82c4_0%,#1b4a83_38%,#0b2346_70%,#06142b_100%)] shadow-[inset_-30px_-30px_60px_rgba(0,0,0,0.55),inset_14px_14px_40px_rgba(255,255,255,0.18),0_0_0_1.5px_rgba(170,220,255,0.45),0_30px_80px_-20px_rgba(10,40,90,0.8)]">
-        <div className="absolute inset-[14%] opacity-90">
-          <MiniIndia width={300} height={330} states={false} fill="rgba(80,170,120,0.55)" stroke="transparent" outline="#9be7ff" points={pts} />
-        </div>
-        <div className="absolute inset-0 animate-[sway_14s_ease-in-out_infinite_alternate] bg-[radial-gradient(ellipse_at_70%_20%,rgba(255,255,255,0.25),transparent_40%)]" />
-        <div className="absolute inset-0 rounded-full bg-[radial-gradient(circle_at_30%_25%,rgba(255,255,255,0.35),transparent_35%)]" />
-      </div>
-    </motion.div>
-  );
-}
-
 const STEPS = ["Ingesting data", "Processing & aligning", "Generating forecast", "Explaining results"];
 
 function ModelCard() {
@@ -582,11 +556,10 @@ export function HomePage() {
       </section>
 
       <section className={place("lg:top-[60.2%]")}>
-        <div className="mx-auto grid max-w-[1500px] items-center gap-6 lg:grid-cols-[1fr_0.9fr_1fr]">
+        <div className="mx-auto grid max-w-[1500px] items-center gap-6 lg:grid-cols-2">
           <motion.div {...reveal}>
             <DataSourcesCard />
           </motion.div>
-          <Globe anchor={anchor} />
           <motion.div {...reveal} transition={{ ...reveal.transition, delay: 0.1 }}>
             <ModelCard />
           </motion.div>
