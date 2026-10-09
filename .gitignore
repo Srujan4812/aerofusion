@@ -1,0 +1,37 @@
+# Node / Next
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# Data & experiments (rebuilt by `make data` / training)
+data/raw/
+data/processed/
+ml/runs/
+*.pt
+*.ckpt
+*.parquet
+
+# Secrets
+.env
+.env.local
+.env.*.local
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+.dist/
+.claude/settings.local.json
