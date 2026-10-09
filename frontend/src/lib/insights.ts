@@ -21,7 +21,9 @@ export function forecastInsights(city: City, anchor: Hour, series: ForecastPoint
   const change6 = ((at6.pred - now.truth) / now.truth) * 100;
   const a6 = attribution(city, at6.t);
   const a0 = attribution(city, anchor);
-  const deltas = (Object.keys(a6.values) as FeatureKey[]).map((k) => [k, a6.values[k] - a0.values[k]] as [FeatureKey, number]);
+  // Static/slow features (inventories, season) can't explain an hour-scale change — rank dynamic drivers only.
+  const dynamic = (Object.keys(a6.values) as FeatureKey[]).filter((k) => !["roads", "industry", "landuse", "season"].includes(k));
+  const deltas = dynamic.map((k) => [k, a6.values[k] - a0.values[k]] as [FeatureKey, number]);
   const drivers = deltas.sort((x, y) => (change6 >= 0 ? y[1] - x[1] : x[1] - y[1]));
   const d1 = FEATURE_BY_KEY[drivers[0][0]].short.toLowerCase();
   const d2 = FEATURE_BY_KEY[drivers[1][0]].short.toLowerCase();
