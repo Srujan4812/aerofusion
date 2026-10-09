@@ -12,7 +12,9 @@ export type FeatureKey =
   | "lags"
   | "traffic"
   | "season"
-  | "local";
+  | "roads"
+  | "industry"
+  | "landuse";
 
 export interface FeatureMeta {
   key: FeatureKey;
@@ -32,7 +34,9 @@ export const FEATURES: FeatureMeta[] = [
   { key: "humidity", label: "Relative humidity", short: "Humidity", group: "Meteorology", source: "ERA5 / IMD", color: "#8b5cf6" },
   { key: "traffic", label: "Traffic & activity proxy", short: "Traffic", group: "Anthropogenic", source: "Calendar proxy", color: "#eab308" },
   { key: "season", label: "Season / climatology", short: "Season", group: "Temporal", source: "Calendar", color: "#64748b" },
-  { key: "local", label: "Local emission baseline", short: "Local baseline", group: "Static", source: "Land use", color: "#a8a29e" },
+  { key: "industry", label: "Industrial activity (static)", short: "Industry", group: "Static", source: "EDGAR / CPCB inventory", color: "#b45309" },
+  { key: "roads", label: "Road & traffic density (static)", short: "Road density", group: "Static", source: "OpenStreetMap", color: "#94a3b8" },
+  { key: "landuse", label: "Population & land use", short: "Land use", group: "Static", source: "WorldPop / ESA", color: "#a8a29e" },
 ];
 
 export const FEATURE_BY_KEY = Object.fromEntries(FEATURES.map((f) => [f.key, f])) as Record<FeatureKey, FeatureMeta>;
@@ -75,9 +79,20 @@ export function attribution(city: City, t: Hour): Attribution {
     traffic: terms.diurnal * scale * trafficShare,
     lags: terms.lags * scale,
     season: terms.season * scale,
-    local: terms.local * scale,
+    ...splitStatic(city, terms.local * scale),
   };
   return { baseValue: BASE_VALUE, prediction: c.pm, values };
+}
+
+/** City-specific split of the static emission term into inventory-style features. */
+function splitStatic(city: City, v: number): Pick<Record<FeatureKey, number>, "roads" | "industry" | "landuse"> {
+  const h = hashString(city.slug + ":static");
+  const r1 = ((h & 0xff) / 255) * 0.35;
+  const r2 = (((h >>> 8) & 0xff) / 255) * 0.4;
+  const r3 = (((h >>> 16) & 0xff) / 255) * 0.3;
+  const w = [0.32 + r1, 0.22 + r2, 0.26 + r3];
+  const s = w[0] + w[1] + w[2];
+  return { roads: (v * w[0]) / s, industry: (v * w[1]) / s, landuse: (v * w[2]) / s };
 }
 
 /** Mean |φ| share across all cities over the last `hours` (global importance, %). */

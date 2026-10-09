@@ -201,21 +201,25 @@ export function AtmosMap({
     };
   }, [zoomable, wheelZoom, w, h]);
 
-  // focus (fly-to)
+  // focus (fly-to) — keyed by value so inline objects don't restart the transition every render
+  const focusKey = focus ? `${focus.lat.toFixed(3)},${focus.lon.toFixed(3)},${focus.k}` : "";
+  const hadFocus = useRef(false);
   useEffect(() => {
     const el = wrapRef.current;
     const z = zoomRef.current;
     if (!el || !z || !geo) return;
     const sel = select(el);
-    if (!focus) {
-      sel.transition().duration(900).call(z.transform, zoomIdentity);
+    if (!focusKey) {
+      if (hadFocus.current) sel.transition().duration(900).call(z.transform, zoomIdentity);
+      hadFocus.current = false;
       return;
     }
-    const [x, y] = project(focus.lon, focus.lat);
-    const k = focus.k;
+    hadFocus.current = true;
+    const [lat, lon, k] = focusKey.split(",").map(Number);
+    const [x, y] = project(lon, lat);
     const target = zoomIdentity.translate(w / 2 - x * k, h / 2 - y * k).scale(k);
     sel.transition().duration(1100).call(z.transform, target);
-  }, [focus, geo, project, w, h]);
+  }, [focusKey, geo, project, w, h]);
 
   const zoomBy = (factor: number) => {
     const el = wrapRef.current;

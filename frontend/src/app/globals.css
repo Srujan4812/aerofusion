@@ -151,6 +151,10 @@
   from { transform: translateX(-4%); }
   to { transform: translateX(4%); }
 }
+@keyframes cube-spin {
+  from { transform: rotateX(-24deg) rotateY(0deg); }
+  to { transform: rotateX(-24deg) rotateY(360deg); }
+}
 @keyframes twinkle {
   0%, 100% { opacity: 0.25; }
   50% { opacity: 1; }
