@@ -6,8 +6,8 @@ import "./globals.css";
 
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"], display: "swap" });
 const mono = JetBrains_Mono({ variable: "--font-jetbrains", subsets: ["latin"], display: "swap" });
-// NCL Gasdrifo (Enxyclo Studio) — free for personal / non-commercial use only. Buy a licence before commercial use.
-const gasdrifo = localFont({ src: "../fonts/NCLGasdrifo-Demo.otf", variable: "--font-gasdrifo", display: "swap" });
+// Christmas Mallow Demo (via 1001fonts) — free for personal use only. Buy a licence before commercial use.
+const gasdrifo = localFont({ src: "../fonts/ChristmasMallow-Demo.ttf", variable: "--font-gasdrifo", display: "swap" });
 
 export const metadata: Metadata = {
   title: {
