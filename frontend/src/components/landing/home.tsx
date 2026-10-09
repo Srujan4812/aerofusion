@@ -546,12 +546,12 @@ export function HomePage() {
   const line = useMemo(() => (anchor === null ? [3, 4, 3, 5, 4, 6, 5, 7] : forecastSeries(CITY_BY_SLUG.delhi, anchor, 24, 0, 3).map((p) => p.pred)), [anchor]);
 
   // On large screens every section sits on its matching region of the artwork (positions are % of its height).
-  const place = (top: string) => cn("relative px-5 py-6 lg:absolute lg:inset-x-0 lg:py-0 lg:px-10", top);
+  const place = (extra: string) => cn("relative px-5 py-8 lg:px-10", extra.replace(/lg:(top|bottom)-\[[^\]]*\]|lg:top-auto|lg:h-\[15%\]/g, ""));
 
   return (
-    <main className="relative overflow-hidden bg-[#0b1430] lg:aspect-[790/1991]">
+    <main className="relative overflow-hidden bg-[#0b1430]">
       <Image
-        src="/hero/homepage.png"
+        src="/hero/homepage.webp"
         alt=""
         fill
         priority
@@ -562,7 +562,7 @@ export function HomePage() {
       <div className="pointer-events-none absolute inset-x-0 top-0 h-[14%] bg-gradient-to-b from-[#0b1d33]/40 to-transparent" />
       <div className="pointer-events-none absolute inset-0 hidden bg-[#050a14]/30 dark:block" />
 
-      <section className={place("pt-32 lg:top-[5.5%]")}>
+      <section className={place("flex min-h-dvh flex-col justify-center pt-32")}>
         <div className="mx-auto max-w-[1500px]">
           <Hero delhi={delhi} />
         </div>
@@ -593,7 +593,7 @@ export function HomePage() {
         </div>
       </section>
 
-      <section className={place("lg:top-[79%] lg:h-[15%]")}>
+      <section className={place("lg:h-[420px]")}>
         <div className="relative mx-auto h-full max-w-[1500px]">
           <FloatingWidgets anchor={anchor} />
         </div>
