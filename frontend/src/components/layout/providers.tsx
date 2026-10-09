@@ -1,12 +1,17 @@
 "use client";
 
 import Lenis from "lenis";
-import { MotionConfig } from "motion/react";
+import { MotionConfig, MotionGlobalConfig } from "motion/react";
 import { ThemeProvider } from "next-themes";
 import { Tooltip } from "radix-ui";
 import { useEffect, type ReactNode } from "react";
 import { Toaster } from "sonner";
 import { useAppStore } from "@/hooks/use-app-store";
+
+// `?static=1` renders every animation in its final state — handy for report screenshots.
+if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("static") === "1") {
+  MotionGlobalConfig.skipAnimations = true;
+}
 
 function SmoothScroll() {
   useEffect(() => {

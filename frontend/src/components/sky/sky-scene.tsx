@@ -136,6 +136,10 @@ export interface SkySceneProps {
   pathLabels?: { title: string; subtitle: string }[];
   children?: ReactNode;
   particles?: boolean;
+  /** Keep the right-hand side (landmark) in view when the container is tall. */
+  align?: "center" | "right";
+  /** Extra sky (viewBox units) above the scene, for tall hero containers. */
+  extendTop?: number;
 }
 
 export function SkyScene({
@@ -148,6 +152,8 @@ export function SkyScene({
   pathLabels,
   children,
   particles = true,
+  align = "center",
+  extendTop = 0,
 }: SkySceneProps) {
   const mounted = useMounted();
   const { resolvedTheme } = useTheme();
@@ -171,15 +177,16 @@ export function SkyScene({
         far: mix(p.far, "#3a2a2a", haze * 0.35),
       };
     }
-    const dust = "#d6c3a3";
+    // Smog reads as a warm amber-brown veil (low sun through particulates), not flat grey.
+    const dust = "#e2b98c";
     return {
       ...p,
-      top: mix(p.top, "#b9b6ad", haze * 0.55),
-      mid: mix(p.mid, "#d9ccb6", haze * 0.6),
+      top: mix(p.top, "#c2b8a8", haze * 0.5),
+      mid: mix(p.mid, "#e6cfae", haze * 0.6),
       horizon: mix(p.horizon, dust, haze * 0.75),
-      far: mix(p.far, dust, 0.25 + haze * 0.5),
-      near: mix(p.near, mix(p.horizon, dust, haze), haze * 0.45),
-      treesBack: mix(p.treesBack, dust, haze * 0.25),
+      far: mix(p.far, mix(dust, "#9a8f86", 0.4), 0.2 + haze * 0.45),
+      near: mix(p.near, mix(p.horizon, "#7d7068", 0.5), haze * 0.3),
+      treesBack: mix(p.treesBack, dust, haze * 0.2),
     };
   }, [dark, istHour, haze]);
 
@@ -192,12 +199,12 @@ export function SkyScene({
       mid: buildSkyline(seed * 29 + 3, 640, W + 20, 40, 150, [lx + skip[0], lx + skip[1]]),
       treesBack: trees(seed * 7 + 5, 392, 18, 34),
       treesFront: trees(seed * 11 + 9, 418, 22, 46),
-      stars: Array.from({ length: 70 }, (_, i) => {
+      stars: Array.from({ length: 70 + Math.round(extendTop / 4) }, (_, i) => {
         const r = mulberry32(seed * 101 + i);
-        return { x: r() * W, y: r() * 230, r: 0.4 + r() * 1.1, d: r() * 4 };
+        return { x: r() * W, y: -extendTop + r() * (230 + extendTop), r: 0.4 + r() * 1.1, d: r() * 4 };
       }),
     };
-  }, [landmark, seed, variant]);
+  }, [landmark, seed, variant, extendTop]);
 
   const id = `sky-${variant}-${seed}`;
 
@@ -214,7 +221,11 @@ export function SkyScene({
       className={cn("relative overflow-hidden", className)}
       aria-hidden
     >
-      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMax slice" className="absolute inset-0 size-full">
+      <svg
+        viewBox={`0 ${-extendTop} ${W} ${H + extendTop}`}
+        preserveAspectRatio={align === "right" ? "xMaxYMax slice" : "xMidYMax slice"}
+        className="absolute inset-0 size-full"
+      >
         <defs>
           <linearGradient id={`${id}-sky`} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0" stopColor={pal.top} />
@@ -228,8 +239,8 @@ export function SkyScene({
           </radialGradient>
           <linearGradient id={`${id}-haze`} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0" stopColor={dark ? "#3b2a22" : "#e6d6bd"} stopOpacity="0" />
-            <stop offset="0.55" stopColor={dark ? "#6b3b20" : "#dccab0"} stopOpacity={0.12 + haze * 0.5} />
-            <stop offset="1" stopColor={dark ? "#8a4a22" : "#d5c09f"} stopOpacity={0.2 + haze * 0.62} />
+            <stop offset="0.55" stopColor={dark ? "#6b3b20" : "#e3c7a2"} stopOpacity={0.1 + haze * 0.42} />
+            <stop offset="1" stopColor={dark ? "#8a4a22" : "#dcb98f"} stopOpacity={0.16 + haze * 0.5} />
           </linearGradient>
           <radialGradient id={`${id}-glow`} cx="0.62" cy="1" r="0.75">
             <stop offset="0" stopColor="#ff8a3d" stopOpacity={dark ? 0.1 + haze * 0.45 : 0} />
@@ -252,7 +263,7 @@ export function SkyScene({
         </defs>
 
         {/* Sky */}
-        <rect width={W} height={H} fill={`url(#${id}-sky)`} />
+        <rect y={-extendTop} width={W} height={H + extendTop} fill={`url(#${id}-sky)`} />
 
         {/* Stars */}
         {(dark || variant === "orbit") && (
@@ -266,9 +277,9 @@ export function SkyScene({
         )}
 
         {/* Sun / moon */}
-        <circle cx={dark ? 1330 : 1290} cy={dark ? 92 : 118} r={dark ? 150 : 230} fill={`url(#${id}-sun)`} />
-        {dark && <circle cx={1330} cy={92} r={16} fill="#eef3ff" opacity={0.92} />}
-        {!dark && <circle cx={1290} cy={118} r={28} fill={pal.sun} opacity={0.9 - haze * 0.4} />}
+        <circle cx={dark ? 1330 : 1290} cy={(dark ? 92 : 118) - extendTop * 0.3} r={dark ? 150 : 230} fill={`url(#${id}-sun)`} />
+        {dark && <circle cx={1330} cy={92 - extendTop * 0.3} r={16} fill="#eef3ff" opacity={0.92} />}
+        {!dark && <circle cx={1290} cy={118 - extendTop * 0.3} r={28} fill={pal.sun} opacity={0.9 - haze * 0.4} />}
 
         {/* Clouds */}
         <g filter={`url(#${id}-blur)`} opacity={dark ? 0.12 : 0.75 - haze * 0.25}>

@@ -13,7 +13,6 @@ import { AqiBadge, Badge, Dot } from "@/components/ui/badge";
 import { Card, CardHeader } from "@/components/ui/card";
 import { AnimatedNumber, Skeleton, Slider, Switch, Tip } from "@/components/ui/primitives";
 import { Stagger, StaggerItem } from "@/components/ui/reveal";
-import { Segmented } from "@/components/ui/segmented";
 import { useAnchor } from "@/hooks/use-anchor";
 import { useAppStore } from "@/hooks/use-app-store";
 import { useCity } from "@/hooks/use-city";

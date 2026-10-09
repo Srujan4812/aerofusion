@@ -1,11 +1,21 @@
-import Link from "next/link";
+import { Hero } from "@/components/landing/hero";
+import { HowItWorks } from "@/components/landing/how-it-works";
+import { LandingNav } from "@/components/landing/landing-nav";
+import { FeatureBento, FinalCta, Impact, LandingFooter, LiveStrip } from "@/components/landing/sections";
 
 export default function Home() {
   return (
-    <main className="grid min-h-dvh place-items-center">
-      <Link href="/forecast" className="rounded-xl bg-primary px-5 py-3 text-primary-fg">
-        Open dashboard
-      </Link>
-    </main>
+    <>
+      <LandingNav />
+      <main>
+        <Hero />
+        <LiveStrip />
+        <HowItWorks />
+        <FeatureBento />
+        <Impact />
+        <FinalCta />
+      </main>
+      <LandingFooter />
+    </>
   );
 }

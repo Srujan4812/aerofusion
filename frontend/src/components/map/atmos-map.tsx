@@ -234,6 +234,24 @@ export function AtmosMap({
     select(el).transition().duration(600).call(z.transform, zoomIdentity);
   };
 
+  const drawHeat = useCallback(() => {
+    const c = heatRef.current;
+    if (!c || !w) return;
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    if (c.width !== Math.ceil(w * dpr)) {
+      c.width = Math.ceil(w * dpr);
+      c.height = Math.ceil(h * dpr);
+    }
+    const ctx = c.getContext("2d")!;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, c.width, c.height);
+    const off = offRef.current;
+    if (!off) return;
+    const z = tfRef.current;
+    ctx.setTransform(dpr * z.k, 0, 0, dpr * z.k, dpr * z.x, dpr * z.y);
+    ctx.drawImage(off, 0, 0, w, h);
+  }, [w, h]);
+
   // ── heat field (offscreen, base scale) ──
   const pts = useMemo<FieldPoint[]>(() => heatPoints ?? cities.map((c) => ({ lat: c.lat, lon: c.lon, value: c.value })), [heatPoints, cities]);
 
@@ -274,26 +292,7 @@ export function AtmosMap({
     octx.restore();
     offRef.current = off;
     drawHeat();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [geo, heat, pts, metric, t, w, h]);
-
-  const drawHeat = useCallback(() => {
-    const c = heatRef.current;
-    if (!c || !w) return;
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
-    if (c.width !== Math.ceil(w * dpr)) {
-      c.width = Math.ceil(w * dpr);
-      c.height = Math.ceil(h * dpr);
-    }
-    const ctx = c.getContext("2d")!;
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.clearRect(0, 0, c.width, c.height);
-    const off = offRef.current;
-    if (!off) return;
-    const z = tfRef.current;
-    ctx.setTransform(dpr * z.k, 0, 0, dpr * z.k, dpr * z.x, dpr * z.y);
-    ctx.drawImage(off, 0, 0, w, h);
-  }, [w, h]);
+  }, [geo, heat, pts, metric, t, w, h, drawHeat]);
 
   useEffect(() => {
     drawHeat();

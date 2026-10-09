@@ -337,12 +337,11 @@ function Insights({ data, cityName }: { data: InsightData; cityName: string }) {
 
 function Waterfall({ attr }: { attr: ReturnType<typeof attribution> }) {
   const rows = (Object.entries(attr.values) as [FeatureKey, number][]).sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
-  let cum = attr.baseValue;
-  const steps = rows.map(([k, v]) => {
-    const start = cum;
-    cum += v;
-    return { k, v, start, end: cum };
-  });
+  const steps = rows.reduce<{ k: FeatureKey; v: number; start: number; end: number }[]>((acc, [k, v]) => {
+    const start = acc.length ? acc[acc.length - 1].end : attr.baseValue;
+    acc.push({ k, v, start, end: start + v });
+    return acc;
+  }, []);
   const lo = Math.min(attr.baseValue, ...steps.map((s) => Math.min(s.start, s.end))) * 0.92;
   const hi = Math.max(attr.baseValue, ...steps.map((s) => Math.max(s.start, s.end))) * 1.04;
   const X = (v: number) => ((v - lo) / (hi - lo)) * 100;

@@ -328,7 +328,7 @@ function curves() {
 }
 
 function TrainingCurves({ compact }: { compact?: boolean }) {
-  const data = useMemo(curves, []);
+  const data = useMemo(() => curves(), []);
   const best = data.reduce((m, d) => (d.val < m.val ? d : m), data[0]);
   return (
     <Card>

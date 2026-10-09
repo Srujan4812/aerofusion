@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowRight, Boxes, CheckCircle2, Clock, Cloud, Database, Flame, Gauge, HardDrive, Layers, Leaf, Loader2, MapPin, Play, RotateCcw, Satellite, Settings2, ShieldCheck, Sparkles, Timer } from "lucide-react";
-import { AnimatePresence, motion } from "motion/react";
+import { motion } from "motion/react";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { GlassNote, PageHero } from "@/components/layout/page-hero";

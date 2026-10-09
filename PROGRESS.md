@@ -11,16 +11,19 @@
 - [x] App shell: animated sidebar, topbar (⌘K search, clock, demo-data pill, alerts), mobile drawer, footer
 - [x] Procedural SkyScene hero (haze follows PM2.5, city landmarks, mountains/orbit variants, particles)
 - [x] Forecast page
-- [ ] Landing page (/)
-- [ ] Overview dashboard (/dashboard)
-- [ ] Live map (/live-map) — custom canvas map: heat, wind particles, fires, transport arcs
-- [ ] Model Lab (/model-lab)
-- [ ] Explainability (/explainability)
-- [ ] What-if simulator (/simulator)
-- [ ] Data sources (/data-sources)
-- [ ] Data pipeline (/pipeline)
-- [ ] Reports (/reports)
-- [ ] About (/about)
+- [x] Landing page (/)
+- [x] Overview dashboard (/dashboard)
+- [x] Live map (/live-map) — custom canvas map: heat, wind particles, fires, transport arcs
+- [x] Model Lab (/model-lab)
+- [x] Explainability (/explainability)
+- [x] What-if simulator (/simulator)
+- [x] Data sources (/data-sources)
+- [x] Data pipeline (/pipeline)
+- [x] Reports (/reports)
+- [x] About (/about)
+
+- [x] Production build passes (all 12 routes static); eslint + tsc clean
+- [x] `?static=1` URL flag renders all Motion animations in their final state (for report screenshots)
 
 ## Backend (FastAPI)
 - [ ] API contract + routers + demo provider

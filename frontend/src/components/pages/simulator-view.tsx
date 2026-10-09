@@ -1,7 +1,7 @@
 "use client";
 
 import { CalendarClock, Car, Construction, Droplets, Factory, Info, Lightbulb, RotateCcw, Sparkles, Star, Thermometer, Timer, Users, Wheat, Wind } from "lucide-react";
-import { AnimatePresence, motion } from "motion/react";
+import { motion } from "motion/react";
 import { useDeferredValue, useMemo, useState } from "react";
 import { Area, Bar, BarChart, CartesianGrid, ComposedChart, Legend as RLegend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ChartTip, Legend } from "@/components/charts/chart-tooltip";
