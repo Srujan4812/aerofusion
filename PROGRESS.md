@@ -44,3 +44,5 @@
 2. ML package `ml/`: data fetchers (Open-Meteo/ERA5, CAMS, FIRMS, OpenAQ), dataset builder, models (wavelet, adaptive graph, ConvLSTM, transformer, causal gate, quantile heads), baselines, train/eval/explain, unit tests.
 3. Frontend API mode: typed client + hooks when `NEXT_PUBLIC_API_URL` is set.
 4. Root README (setup, run, integrity notes), push to GitHub once `puneethmcs24` has write access to Srujan4812/aerofusion.
+
+- [x] Homepage rebuilt on full-page artwork `frontend/public/hero/homepage.png` (sections placed by % of image height on lg+), Gasdrifo display font (personal-use licence), college branding removed. TODO: supply a 4K export of the artwork (current file is 790x1991).
