@@ -7,7 +7,12 @@ import "./globals.css";
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"], display: "swap" });
 const mono = JetBrains_Mono({ variable: "--font-jetbrains", subsets: ["latin"], display: "swap" });
 // Christmas Mallow Demo (via 1001fonts) — free for personal use only. Buy a licence before commercial use.
-const gasdrifo = localFont({ src: "../fonts/ChristmasMallow-Demo.ttf", variable: "--font-gasdrifo", display: "swap" });
+const gasdrifo = localFont({ src: "../fonts/ChristmasMallow-Demo.ttf",
+  variable: "--font-gasdrifo",
+  display: "swap",
+  // The face draws very large for its em-box; scale it down to sit like a normal display font.
+  declarations: [{ prop: "size-adjust", value: "52%" }],
+});
 
 export const metadata: Metadata = {
   title: {
