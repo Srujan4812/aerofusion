@@ -96,7 +96,7 @@ function StatCard({ href, icon, title, sub, visual, delay }: { href: string; ico
           <div className="font-display text-lg font-semibold leading-tight text-white">{title}</div>
           <div className="mt-0.5 truncate text-[13px] text-white/75">{sub}</div>
         </div>
-        <div className="hidden shrink-0 scale-90 xl:block 2xl:scale-100">{visual}</div>
+        <div className="hidden shrink-0 min-[1560px]:block">{visual}</div>
         <ChevronRight className="size-5 shrink-0 text-white/70 transition-transform group-hover:translate-x-0.5" />
       </Link>
     </motion.div>
