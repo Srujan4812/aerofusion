@@ -91,6 +91,50 @@ async def fetch_air_quality(client: httpx.AsyncClient) -> SourceResult:
 WX_VARS = ["temperature_2m", "relative_humidity_2m", "wind_speed_10m", "wind_direction_10m", "surface_pressure", "precipitation", "boundary_layer_height"]
 
 
+async def _weather_metno(client: httpx.AsyncClient) -> tuple[dict, int]:
+    """MET Norway Locationforecast (api.met.no, free, no key) mapped onto the Open-Meteo field names."""
+    sem = asyncio.Semaphore(8)
+    headers = {"User-Agent": "AeroFusion/0.2 github.com/Srujan4812/aerofusion"}
+
+    async def one(c: City):
+        async with sem:
+            r = await client.get(
+                "https://api.met.no/weatherapi/locationforecast/2.0/compact",
+                params={"lat": round(c.lat, 3), "lon": round(c.lon, 3)},
+                headers=headers,
+                timeout=30,
+            )
+            r.raise_for_status()
+            ts = r.json()["properties"]["timeseries"]
+        hourly = {k: [] for k in ("time", "temperature_2m", "relative_humidity_2m", "wind_speed_10m", "wind_direction_10m", "boundary_layer_height")}
+        for t in ts[:96]:
+            d = t["data"]["instant"]["details"]
+            hourly["time"].append(t["time"][:16])
+            hourly["temperature_2m"].append(d.get("air_temperature"))
+            hourly["relative_humidity_2m"].append(d.get("relative_humidity"))
+            hourly["wind_speed_10m"].append(d.get("wind_speed"))
+            hourly["wind_direction_10m"].append(d.get("wind_from_direction"))
+            hourly["boundary_layer_height"].append(None)
+        d0 = ts[0]["data"]["instant"]["details"]
+        rain = (ts[0]["data"].get("next_1_hours") or {}).get("details", {}).get("precipitation_amount")
+        current = {
+            "temperature_2m": d0.get("air_temperature"),
+            "relative_humidity_2m": d0.get("relative_humidity"),
+            "wind_speed_10m": d0.get("wind_speed"),
+            "wind_direction_10m": d0.get("wind_from_direction"),
+            "surface_pressure": d0.get("air_pressure_at_sea_level"),
+            "precipitation": rain,
+            "boundary_layer_height": None,
+        }
+        return c.slug, {**current, "time": ts[0]["time"][:16], "hourly": hourly, "provider": "MET Norway"}
+
+    rows = await asyncio.gather(*(one(c) for c in CITIES), return_exceptions=True)
+    out = {slug: v for row in rows if not isinstance(row, BaseException) for slug, v in [row]}
+    if not out:
+        raise RuntimeError("Open-Meteo rate-limited and MET Norway fallback failed")
+    return out, len(out)
+
+
 async def fetch_weather(client: httpx.AsyncClient) -> SourceResult:
     async def run():
         params = {
@@ -108,6 +152,9 @@ async def fetch_weather(client: httpx.AsyncClient) -> SourceResult:
             r = await client.get("https://api.open-meteo.com/v1/forecast", params=params)
             if r.status_code != 429:
                 break
+        if r.status_code == 429:
+            # Open-Meteo quota exhausted on this (shared) IP → MET Norway fallback (no PBL height)
+            return await _weather_metno(client)
         r.raise_for_status()
         rows = r.json()
         rows = rows if isinstance(rows, list) else [rows]
