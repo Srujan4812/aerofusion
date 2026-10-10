@@ -1,19 +1,22 @@
 # AeroFusion — progress & checkpoints
 
-> Resume point for anyone (human or AI). Update after every milestone. Last update: **2026-10-10** · tag `checkpoint-2026-10-10`.
+> Resume point for anyone (human or AI). Update after every milestone. Last update: **2026-10-10** · tag `checkpoint-2026-10-10b`.
 
 ```
-Overall                      ████████████████░░░░  80%
+Overall (current scope)      ██████████████████░░  90%
 Frontend UI (12 pages)       ████████████████████ 100%  Liquid Glass, light/dark, photo backgrounds, sounds
 Live data backend            ████████████████████ 100%  6 sources → fusion → (T,33,20) tensor, auto-refresh 10 min
 Dashboards on real data      ████████████████████ 100%  no simulated values left in any dashboard
-AI explainability            ████████████████████ 100%  Bedrock Nova Micro → Groq fallback; cards + streamed chat
-Historical training dataset  ███░░░░░░░░░░░░░░░░░  15%  CPCB labels reachable (196M rows); inputs not backfilled
-ML model (MW-AeroFusion-Net) ░░░░░░░░░░░░░░░░░░░░   0%  not started
-Evaluation & model serving   ░░░░░░░░░░░░░░░░░░░░   0%
-Tests / CI / deployment      █░░░░░░░░░░░░░░░░░░░   5%
-Docs                         ██████████░░░░░░░░░░  50%  README + this file
+AI explainability            ████████████████████ 100%  model picker: Nova Micro (Bedrock) / Groq, auto-fallback, streamed chat
+Docs                         ████████████████░░░░  80%  README + this file (screenshots missing)
+Code cleanup & security      ████░░░░░░░░░░░░░░░░  20%  unused simulator code, AI endpoint rate-limit
+Tests / CI                   █░░░░░░░░░░░░░░░░░░░   5%
+Deployment (public URL)      ░░░░░░░░░░░░░░░░░░░░   0%  runs locally only
 ```
+
+> **Scope decision (2026-10-10):** training MW-AeroFusion-Net is **out of scope**. AeroFusion ships as a live
+> multi-source monitoring + CAMS forecast + AI-explanation platform. The live tensor and CPCB archive access remain
+> in place if training is picked up later (see "Future work").
 
 ---
 
@@ -46,43 +49,31 @@ Docs                         ██████████░░░░░░░
 
 ---
 
-## ⏳ What's left (in order)
+## ⏳ What's left (current scope)
 
-### 1. Historical training dataset — *highest priority*
-- [ ] `ml/data/` fetchers for **2019–2024**: CAMS reanalysis / EAC4 (or Open-Meteo AQ archive), ERA5 weather (Open-Meteo archive API), NASA FIRMS archive (needs free MAP_KEY), calendar features
-- [ ] Hourly CPCB PM2.5 labels per city from XKDR (station means within 30 km, QC: drop flat-lines / > 999 / gaps)
-- [ ] Align to the same 20 features as the live tensor → `ml/data/train.npz` (T × 33 × 20) + masks
-- [ ] Train/val/test split by time (train 2019–2022, val 2023, test 2024)
+### 1. Deployment — to get a public URL
+- [ ] Backend: Dockerfile + host (Render / Railway / AWS App Runner / EC2) with secrets `XKDR_API_KEY`, `AWS_BEARER_TOKEN_BEDROCK`, `GROQ_API_KEY`
+- [ ] Frontend: Vercel (free) with `NEXT_PUBLIC_API_URL` = backend URL; set `AEROFUSION_CORS` on the backend to the Vercel domain
+- [ ] Persist `backend/data/` (tensor + caches) on a volume
 
-### 2. Model — MW-AeroFusion-Net (`ml/`)
-- [ ] Baselines first: persistence, climatology, CAMS-as-forecast, LightGBM
-- [ ] Modules: causal wavelet branch · adaptive diffusion graph (init from live wind graph) · ConvLSTM/temporal encoder · Transformer · causal attention gate · P10/P50/P90 quantile heads (pinball loss)
-- [ ] Training script, configs, seeds, `ml/runs/<run_id>/metrics.json` + checkpoint
-- [ ] Unit tests for shapes / causality (no future leakage)
+### 2. Security & cost control
+- [ ] Rate-limit `/api/ai/*` and `/api/live/refresh` (per-IP) so the public can't burn the Bedrock credit
+- [ ] AWS Budgets alert on the Bedrock credit; rotate the Bedrock key that was shared in chat
+- [ ] Switch `BEDROCK_REGION=ap-south-1`, `BEDROCK_MODEL=apac.amazon.nova-micro-v1:0` once AWS account verification finishes
 
-### 3. Evaluation
-- [ ] MAE / RMSE / CRPS / interval coverage by horizon (1–72 h), per city and per season, vs CAMS and persistence on held-out 2024
-- [ ] Ablations (remove wavelet / graph / fires / met) — only real numbers go into the UI
+### 3. Cleanup
+- [ ] Delete unused demo simulator: `frontend/src/lib/sim/*`, `hooks/use-anchor.ts` (move `HOUR_MS`/`useClock` into `lib/format.ts`), `components/map/scales.ts` if unused, `backend/app/sim/*` (keep the city list)
+- [ ] Remove the leftover Ollama provider if it will never be used (or keep as an offline option)
 
-### 4. Serve the model
-- [ ] `POST /api/forecast/{city}` and `/api/explain/{city}` (SHAP / attention) from the trained checkpoint, run on the live tensor each refresh
-- [ ] Forecast page: overlay AeroFusion P50 + P10–P90 band next to CAMS; Model Lab: real metrics & curves; Explainability: real attributions next to the AI cards
-- [ ] Simulator: perturb model inputs instead of the surrogate
+### 4. Tests / CI
+- [ ] pytest for fusion + AI context builder with mocked sources; GitHub Actions running `tsc`, `eslint`, `next build`, `pytest`
 
-### 5. Engineering
-- [ ] Backend tests (pytest, mocked sources) and frontend type/lint in CI (GitHub Actions)
-- [ ] Persist snapshot history (SQLite/Parquet) instead of only the rolling 72-step tensor
-- [ ] `--reload` dev script; Dockerfile for API; deploy (frontend on Vercel, API on Render / HF Spaces) with env secrets
-- [ ] Remove the now-unused demo simulator (`frontend/src/lib/sim/*`, `backend/app/sim/*` except city list) and `use-anchor`
-- [ ] Rate-limit / auth the AI endpoints before any public deployment (Bedrock is pay-per-token from the $100 credit; Groq free tier is small)
-- [ ] Switch `BEDROCK_REGION` to `ap-south-1` (`apac.amazon.nova-micro-v1:0`) once AWS account verification completes
+### 5. Polish (optional)
+- [ ] README screenshots / short demo GIF; 4K background artwork; mobile pass on Live Map & Explainability
+- [ ] Remember the chosen AI model across reloads
 
-### 6. Polish
-- [ ] 4K artwork (3840 px) for backgrounds; mobile pass on Live Map & Explainability
-- [ ] Optional: swap click sound for the myinstants "water drop plop" clip
-- [ ] Screenshots in README; final report figures
-
----
+### Future work (out of current scope)
+- Historical backfill (CAMS reanalysis + ERA5 + FIRMS, 2019–2024) → train MW-AeroFusion-Net → evaluate vs CAMS/persistence → serve forecasts + SHAP/attention
 
 ## Known issues / notes
 - Live PM2.5 is the **CAMS model** (~40 km), not ground truth; CPCB archive (XKDR) is not real-time (PM2.5 to Mar 2026, most stations to Dec 2024).
