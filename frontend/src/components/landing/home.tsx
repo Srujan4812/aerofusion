@@ -82,7 +82,7 @@ function MiniBars({
   values: number[];
   color?: string;
 }) {
-  const max = Math.max(...values);
+  const max = Math.max(1, ...values);
   return (
     <div className="flex h-12 items-end gap-[3px]">
       {values.map((v, i) => (
@@ -111,6 +111,8 @@ function MiniLine({
   w?: number;
   h?: number;
 }) {
+  if (values.filter((v) => Number.isFinite(v)).length < 2)
+    return <svg viewBox={`0 0 ${w} ${h}`} style={{ width: w, height: h }} />;
   const min = Math.min(...values);
   const max = Math.max(...values);
   const pts = values.map((v, i) => [

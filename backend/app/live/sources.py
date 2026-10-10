@@ -13,6 +13,7 @@ import asyncio
 import csv
 import io
 import math
+import os
 import time
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
@@ -61,11 +62,37 @@ def _latlon_params(cities: list[City]) -> dict[str, str]:
 AQ_VARS = ["pm2_5", "pm10", "aerosol_optical_depth", "dust", "nitrogen_dioxide", "carbon_monoxide", "us_aqi"]
 
 
+OM_HOSTS = {"air": "https://air-quality-api.open-meteo.com/v1/air-quality", "forecast": "https://api.open-meteo.com/v1/forecast"}
+
+
+async def _om_get(client: httpx.AsyncClient, target: str, params: dict) -> httpx.Response:
+    """Open-Meteo GET with 429 handling. Free Open-Meteo limits per IP and cloud hosts share IPs, so after a
+    retry we go through the frontend's relay (/api/om on Vercel, different egress IPs)."""
+    r = await client.get(OM_HOSTS[target], params=params)
+    if r.status_code != 429:
+        return r
+    await asyncio.sleep(3)
+    r = await client.get(OM_HOSTS[target], params=params)
+    if r.status_code != 429:
+        return r
+    relay = os.getenv("OM_RELAY_URL", "https://aerofusion.vercel.app/api/om")
+    if relay:
+        try:
+            rr = await client.get(relay, params={"target": target, **params}, timeout=60)
+            if rr.status_code == 200:
+                return rr
+            print(f"[open-meteo] relay {rr.status_code}: {rr.text[:120]}")
+        except Exception as e:  # noqa: BLE001
+            print(f"[open-meteo] relay failed: {e}")
+    return r
+
+
 async def fetch_air_quality(client: httpx.AsyncClient) -> SourceResult:
     async def run():
-        r = await client.get(
-            "https://air-quality-api.open-meteo.com/v1/air-quality",
-            params={**_latlon_params(CITIES), "current": ",".join(AQ_VARS), "hourly": "pm2_5,pm10,aerosol_optical_depth", "past_days": 2, "forecast_days": 4},
+        r = await _om_get(
+            client,
+            "air",
+            {**_latlon_params(CITIES), "current": ",".join(AQ_VARS), "hourly": "pm2_5,pm10,aerosol_optical_depth", "past_days": 2, "forecast_days": 4},
         )
         r.raise_for_status()
         rows = r.json()
@@ -145,13 +172,7 @@ async def fetch_weather(client: httpx.AsyncClient) -> SourceResult:
             "past_days": 2,
             "forecast_days": 4,
         }
-        # Free Open-Meteo is rate-limited per IP (shared on cloud hosts) — back off and retry on 429
-        for attempt, wait in enumerate((0, 4, 12)):
-            if wait:
-                await asyncio.sleep(wait)
-            r = await client.get("https://api.open-meteo.com/v1/forecast", params=params)
-            if r.status_code != 429:
-                break
+        r = await _om_get(client, "forecast", params)
         if r.status_code == 429:
             # Open-Meteo quota exhausted on this (shared) IP → MET Norway fallback (no PBL height)
             return await _weather_metno(client)
