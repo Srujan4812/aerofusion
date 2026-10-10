@@ -8,6 +8,7 @@ import { useEffect, type ReactNode } from "react";
 import { Toaster } from "sonner";
 import { useAppStore } from "@/hooks/use-app-store";
 import { LiveProvider } from "@/hooks/use-live";
+import { SmoothCursor } from "./smooth-cursor";
 import { SoundEngine } from "./sound";
 
 // `?static=1` renders every animation in its final state — handy for report screenshots.
@@ -49,6 +50,7 @@ export function Providers({ children }: { children: ReactNode }) {
           <StoreHydration />
           <SmoothScroll />
           <SoundEngine />
+          <SmoothCursor />
           <LiveProvider>{children}</LiveProvider>
           <Toaster
             position="bottom-right"
