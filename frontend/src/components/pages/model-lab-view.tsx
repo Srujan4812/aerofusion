@@ -1,706 +1,277 @@
 "use client";
 
-import { Check, Copy, Crosshair, FlaskConical, MapPin, Sigma, Terminal, Timer, Trophy, TriangleAlert } from "lucide-react";
-import { AnimatePresence, motion } from "motion/react";
+import { ArrowRight, Boxes, CheckCircle2, Circle, Database, GitBranch, Layers, Loader2, Network, ShieldCheck } from "lucide-react";
+import { motion } from "motion/react";
 import { useMemo, useState } from "react";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Line,
-  LineChart,
-  ReferenceLine,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-import { ChartTip, Legend } from "@/components/charts/chart-tooltip";
+import { LiveGate, SourceNote } from "@/components/live/live-gate";
 import { PageHero } from "@/components/layout/page-hero";
-import { ArchitectureDiagram } from "@/components/model-lab/architecture";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Kpi } from "@/components/ui/kpi";
 import { Skeleton } from "@/components/ui/primitives";
 import { Stagger, StaggerItem } from "@/components/ui/reveal";
-import { PillTabs, Segmented } from "@/components/ui/segmented";
-import { EXPERIMENTS, HYPERPARAMS, LADDER, METRICS_STATUS } from "@/data/model-lab";
-import { useAnchor } from "@/hooks/use-anchor";
-import { useCity } from "@/hooks/use-city";
-import { CITIES } from "@/lib/cities";
-import { fmtDay } from "@/lib/format";
-import { gaussian } from "@/lib/rng";
-import { adjacencyMatrix } from "@/lib/sim/graph";
-import { backtest } from "@/lib/sim/forecast";
+import { useAppStore } from "@/hooks/use-app-store";
+import { useApi, type LiveSnapshot } from "@/hooks/use-live";
+import { categoryForPm } from "@/lib/aqi";
+import { fmtIst, windGraph } from "@/lib/live";
 import { cn } from "@/lib/utils";
 
-type Tab = "overview" | "architecture" | "ablation" | "training" | "hyper" | "runs";
-type H = "1h" | "24h" | "48h";
-type M = "mae" | "rmse" | "r2";
+interface Archive {
+  meta: { measurements: { rows: number; bytes: number; n_months: number; first_month: string; last_month: string }; stations: number; parameters: number };
+  parameters: { parameter_name: string; unit: string; n_stations: number; n_rows: number; first_seen: string; last_seen: string }[];
+}
 
-const SHORT: Record<string, string> = {
-  Persistence: "Persist.",
-  "Seasonal naive (24 h)": "S-naive",
-  "LightGBM + SHAP": "LightGBM",
-  LSTM: "LSTM",
-  "CNN-LSTM": "CNN-LSTM",
-  ConvLSTM: "ConvLSTM",
-  "+ Adaptive diffusion graph": "+Graph",
-  "+ Wavelet multi-resolution": "+Wavelet",
-  "+ Transformer encoder": "+Transf.",
-  "MW-AeroFusion-Net": "Ours",
-};
+interface TensorInfo {
+  exists: boolean;
+  shape?: number[];
+  timestamps?: string[];
+  features?: string[];
+  coverage_per_feature?: number[];
+  size_kb?: number;
+}
+
+const fmtBig = (n: number) => (n >= 1e9 ? `${(n / 1e9).toFixed(1)}B` : n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}k` : String(n));
 
 export function ModelLabView() {
-  const [tab, setTab] = useState<Tab>("overview");
-  const best = LADDER.find((r) => r.ours)!;
-  const conv = LADDER.find((r) => r.model === "ConvLSTM")!;
-  const pct = (a: number, b: number) => Math.round(((b - a) / b) * 100);
-
   return (
     <div>
       <PageHero
-        sky={{
-          variant: "mountains",
-          pm: 30,
-          seed: 5,
-          pathLabels: [
-            { title: "Wavelet", subtitle: "Multi-resolution" },
-            { title: "Adaptive Graph", subtitle: "Spatial relations" },
-            { title: "ConvLSTM", subtitle: "Spatio-temporal" },
-            { title: "Transformer", subtitle: "Long-range" },
-            { title: "Causal Attention", subtitle: "Explainability" },
-          ],
-        }}
-        height="min-h-[330px]"
         title={
           <>
             Model <span className="text-gradient">Lab</span>
           </>
         }
-        subtitle="Architecture, ablations and training of MW-AeroFusion-Net — every number traceable to a run."
-      >
-        <PillTabs
-          value={tab}
-          onChange={setTab}
-          options={[
-            { value: "overview", label: "Overview" },
-            { value: "architecture", label: "Architecture" },
-            { value: "ablation", label: "Ablation study" },
-            { value: "training", label: "Training" },
-            { value: "hyper", label: "Hyperparameters" },
-            { value: "runs", label: "Experiments" },
-          ]}
-        />
-      </PageHero>
+        subtitle="What MW-AeroFusion-Net will learn from: the measured CPCB archive, the live unified tensor and the wind-driven city graph. No accuracy numbers are shown until a real training run produces them."
+      />
+      <LiveGate>{(s) => <Body snap={s} />}</LiveGate>
+    </div>
+  );
+}
 
-      {METRICS_STATUS !== "measured" && (
-        <motion.div
-          initial={{ opacity: 0, y: -6 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-4 flex items-start gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/[0.08] px-4 py-3 text-[13px] text-amber-900 dark:text-amber-200"
-        >
-          <TriangleAlert className="mt-0.5 size-4 shrink-0" />
-          <div>
-            <b>Illustrative results.</b> Metrics, curves and runs on this page show the reporting format while training is in progress. They are{" "}
-            <b>not measured results</b>. Replace them with <code className="rounded bg-amber-500/15 px-1 font-mono text-[12px]">ml/runs/&lt;run_id&gt;/metrics.json</code> and set{" "}
-            <code className="rounded bg-amber-500/15 px-1 font-mono text-[12px]">METRICS_STATUS = &quot;measured&quot;</code>.
+function Body({ snap }: { snap: LiveSnapshot }) {
+  const archive = useApi<Archive>("/api/archive");
+  const tensor = useApi<TensorInfo>(`/api/tensor?v=${snap.refresh_count}`);
+  const a = archive.data;
+  const t = tensor.data;
+  const pm = a?.parameters.find((p) => p.parameter_name === "PM2.5");
+
+  const steps: { label: string; detail: string; state: "done" | "doing" | "todo" }[] = [
+    { label: "Live ingestion from 6 sources", detail: `${snap.sources.filter((s) => s.ok).length}/${snap.sources.length} online · every ${Math.round(snap.interval_s / 60)} min`, state: "done" },
+    { label: "Unified spatio-temporal tensor", detail: `${snap.tensor.shape.join(" × ")} (time × city × feature), saved on every refresh`, state: "done" },
+    { label: "Ground-truth archive access", detail: a ? `${fmtBig(a.meta.measurements.rows)} CPCB rows, ${a.meta.measurements.first_month} → ${a.meta.measurements.last_month}` : "CPCB via XKDR", state: a ? "done" : "doing" },
+    { label: "Historical backfill of inputs", detail: "CAMS reanalysis + ERA5 weather + FIRMS archive aligned to the CPCB hours (2019–2024)", state: "doing" },
+    { label: "Train MW-AeroFusion-Net", detail: "Wavelet + graph + ConvLSTM + causal-attention, pinball loss for P10/P50/P90", state: "todo" },
+    { label: "Evaluate on held-out 2024", detail: "MAE / RMSE / CRPS by horizon vs CAMS and persistence", state: "todo" },
+    { label: "Serve forecasts in the dashboards", detail: "Replaces the CAMS line on Forecast with AeroFusion + uncertainty bands", state: "todo" },
+  ];
+  const done = steps.filter((s) => s.state === "done").length;
+
+  return (
+    <>
+      <Stagger className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StaggerItem>
+          <Kpi icon={<Database />} label="Ground-truth rows (CPCB)" value={a ? fmtBig(a.meta.measurements.rows) : undefined} tint="#38bdf8" footer={a && <span>{a.meta.stations} stations · {a.meta.parameters} pollutants</span>} />
+        </StaggerItem>
+        <StaggerItem>
+          <Kpi icon={<Layers />} label="PM2.5 label rows" value={pm ? fmtBig(pm.n_rows) : undefined} tint="#f59e0b" footer={pm && <span>{pm.n_stations} stations since {pm.first_seen.slice(0, 4)}</span>} />
+        </StaggerItem>
+        <StaggerItem>
+          <Kpi icon={<Boxes />} label="Live tensor" value={t?.shape ? t.shape.join(" × ") : undefined} tint="#a78bfa" footer={t?.size_kb !== undefined && <span>{t.timestamps?.length ?? 0} snapshots · {t.size_kb} KB</span>} />
+        </StaggerItem>
+        <StaggerItem>
+          <Kpi icon={<ShieldCheck />} label="Model status" value="Not trained" tint="#fb923c" footer={<span>{done} of {steps.length} pipeline steps complete</span>} />
+        </StaggerItem>
+      </Stagger>
+
+      <div className="mt-4 grid gap-4 xl:grid-cols-12">
+        <Card className="xl:col-span-5">
+          <CardHeader title="Road to a trained model" subtitle="Honest status of each stage" icon={<GitBranch className="size-4" />} />
+          <div className="mb-4 h-2 overflow-hidden rounded-full bg-surface-sunken">
+            <motion.div initial={{ width: 0 }} animate={{ width: `${(done / steps.length) * 100}%` }} transition={{ duration: 0.9 }} className="h-full rounded-full bg-gradient-to-r from-teal-400 to-sky-400" />
           </div>
-        </motion.div>
-      )}
-
-      <AnimatePresence mode="wait">
-        <motion.div key={tab} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.3 }}>
-          {tab === "overview" && (
-            <>
-              <Stagger className="grid grid-cols-2 gap-4 lg:grid-cols-3 2xl:grid-cols-6">
-                <StaggerItem>
-                  <Kpi icon={<Trophy />} label="Test MAE · 24 h" value={best.metrics["24h"].mae} digits={1} unit="µg/m³" tint="#f59e0b" footer={<Badge tone="primary">↓ {pct(best.metrics["24h"].mae, conv.metrics["24h"].mae)}% vs ConvLSTM</Badge>} />
-                </StaggerItem>
-                <StaggerItem>
-                  <Kpi icon={<Crosshair />} label="Test RMSE · 24 h" value={best.metrics["24h"].rmse} digits={1} unit="µg/m³" tint="#ef4444" footer={<Badge tone="primary">↓ {pct(best.metrics["24h"].rmse, conv.metrics["24h"].rmse)}% vs ConvLSTM</Badge>} />
-                </StaggerItem>
-                <StaggerItem>
-                  <Kpi icon={<Sigma />} label="R² · 24 h" value={best.metrics["24h"].r2} digits={2} tint="#6366f1" footer={<Badge tone="primary">+{(best.metrics["24h"].r2 - conv.metrics["24h"].r2).toFixed(2)} vs ConvLSTM</Badge>} />
-                </StaggerItem>
-                <StaggerItem>
-                  <Kpi icon={<Timer />} label="Forecast horizons" value="1 · 24 · 48 h" tint="#0ea5e9" footer={<span>quantile heads P10/P50/P90</span>} />
-                </StaggerItem>
-                <StaggerItem>
-                  <Kpi icon={<FlaskConical />} label="Parameters" value="0.85 M" tint="#14b8a6" footer={<span>fits a T4 / laptop GPU</span>} />
-                </StaggerItem>
-                <StaggerItem>
-                  <Kpi icon={<MapPin />} label="Graph nodes" value={CITIES.length} unit="cities" tint="#10b981" footer={<span>adaptive adjacency</span>} />
-                </StaggerItem>
-              </Stagger>
-
-              <Card className="mt-4">
-                <CardHeader title="MW-AeroFusion-Net" subtitle="Multi-resolution Wavelet · Adaptive Diffusion Graph · ConvLSTM · Transformer · Causal Attention — click a block" />
-                <ArchitectureDiagram />
-              </Card>
-
-              <div className="mt-4 grid gap-4 xl:grid-cols-12">
-                <div className="xl:col-span-5">
-                  <ModelComparison />
+          <ol className="space-y-2">
+            {steps.map((s) => (
+              <li key={s.label} className="flex gap-3 rounded-2xl bg-surface-sunken p-3">
+                {s.state === "done" ? (
+                  <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-300" />
+                ) : s.state === "doing" ? (
+                  <Loader2 className="mt-0.5 size-4 shrink-0 animate-spin text-amber-300 [animation-duration:2.5s]" />
+                ) : (
+                  <Circle className="mt-0.5 size-4 shrink-0 text-fg-subtle" />
+                )}
+                <div className="min-w-0">
+                  <div className="text-[13px] font-semibold text-fg">{s.label}</div>
+                  <div className="text-xs text-fg-muted">{s.detail}</div>
                 </div>
-                <div className="xl:col-span-7">
-                  <TrainingCurves />
-                </div>
-              </div>
+              </li>
+            ))}
+          </ol>
+        </Card>
 
-              <div className="mt-4 grid gap-4 xl:grid-cols-2">
-                <PredVsActual />
-                <ErrorHistogram />
-              </div>
-            </>
+        <Card className="xl:col-span-7">
+          <CardHeader title="Ground-truth archive" subtitle="Measured CPCB CAAQMS + US Embassy data, India Air Quality API (XKDR)" icon={<Database className="size-4" />} action={a && <Badge tone="primary">{(a.meta.measurements.bytes / 1e6).toFixed(0)} MB</Badge>} />
+          {a ? <ArchiveTable rows={a.parameters} /> : archive.error ? <div className="text-sm text-amber-200">Archive unavailable: {archive.error}</div> : <Skeleton className="h-[320px]" />}
+        </Card>
+      </div>
+
+      <div className="mt-4 grid gap-4 xl:grid-cols-12">
+        <Card className="xl:col-span-7">
+          <WindGraph snap={snap} />
+        </Card>
+        <Card className="xl:col-span-5">
+          <CardHeader title="Model inputs" subtitle="The 20 features in every tensor slice, with live coverage" icon={<Layers className="size-4" />} />
+          {t?.features ? <Coverage snap={snap} features={t.features} coverage={t.coverage_per_feature ?? []} /> : <Skeleton className="h-[360px]" />}
+          {t?.timestamps && t.timestamps.length > 0 && (
+            <div className="mt-3 text-[11px] text-fg-muted">
+              Tensor window: {fmtIst(Date.parse(t.timestamps[0]), { day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true })} →{" "}
+              {fmtIst(Date.parse(t.timestamps[t.timestamps.length - 1]), { day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true })} IST
+            </div>
           )}
+        </Card>
+      </div>
+      <SourceNote>
+        Everything on this page is read from the running backend: archive metadata from the XKDR India Air Quality API, the tensor from <code>backend/data/processed/live_tensor.npz</code>, and graph weights from the current
+        Open-Meteo winds. Accuracy, ablation and training-curve panels will return once real runs exist.
+      </SourceNote>
+    </>
+  );
+}
 
-          {tab === "architecture" && (
-            <div className="grid gap-4">
-              <Card>
-                <CardHeader title="Data flow" subtitle="Tensor shapes per block · B = batch, T = 72 h window, N = 33 nodes" />
-                <ArchitectureDiagram />
-              </Card>
-              <div className="grid gap-4 xl:grid-cols-12">
-                <Card className="xl:col-span-7">
-                  <CardHeader title="Adaptive adjacency (demo)" subtitle="Row-normalised diffusion weights between the 33 city nodes at the current hour" />
-                  <AdjacencyHeatmap />
-                </Card>
-                <Card className="xl:col-span-5">
-                  <CardHeader title="Research gaps → modules" subtitle="From Chapter 2 of the project report" />
-                  <div className="space-y-2">
-                    {[
-                      ["G1", "Limited multi-source integration", "Multi-source fusion pipeline"],
-                      ["G2", "No multi-resolution temporal analysis", "Wavelet decomposition"],
-                      ["G3", "Inadequate spatial dependency modelling", "Adaptive diffusion graph"],
-                      ["G4", "Inefficient spatio-temporal learning", "ConvLSTM"],
-                      ["G5", "Poor long-range dependency capture", "Transformer encoder"],
-                      ["G6", "Lack of explainability", "Causal attention gate"],
-                    ].map(([g, gap, sol], i) => (
-                      <motion.div
-                        key={g}
-                        initial={{ opacity: 0, x: 12 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: i * 0.05 }}
-                        className="flex items-center gap-3 rounded-xl border border-border bg-surface-2 px-3 py-2.5"
-                      >
-                        <span className="grid size-9 place-items-center rounded-lg bg-primary-soft font-mono text-xs font-bold text-primary">{g}</span>
-                        <div className="min-w-0 flex-1">
-                          <div className="truncate text-[13px] font-medium text-fg">{sol}</div>
-                          <div className="truncate text-[11px] text-fg-muted">{gap}</div>
-                        </div>
-                      </motion.div>
-                    ))}
+function ArchiveTable({ rows }: { rows: Archive["parameters"] }) {
+  const max = Math.max(...rows.map((r) => r.n_rows));
+  return (
+    <div className="-mx-2 overflow-x-auto">
+      <table className="w-full min-w-[520px] text-sm">
+        <thead>
+          <tr className="text-left text-[11px] uppercase tracking-wider text-fg-subtle [&>th]:px-2 [&>th]:pb-2">
+            <th>Pollutant</th>
+            <th>Rows</th>
+            <th className="text-right">Stations</th>
+            <th className="text-right">Coverage</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.parameter_name} className={cn("border-t border-border [&>td]:px-2 [&>td]:py-2", r.parameter_name === "PM2.5" && "bg-primary-soft")}>
+              <td>
+                <div className="font-medium text-fg">{r.parameter_name}</div>
+                <div className="text-[10px] text-fg-subtle">{r.unit}</div>
+              </td>
+              <td className="w-[40%]">
+                <div className="flex items-center gap-2">
+                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-sunken">
+                    <div className="h-full rounded-full bg-sky-400" style={{ width: `${(r.n_rows / max) * 100}%` }} />
                   </div>
-                </Card>
-              </div>
-            </div>
-          )}
-
-          {tab === "ablation" && <Ablation />}
-          {tab === "training" && (
-            <div className="grid gap-4 xl:grid-cols-2">
-              <TrainingCurves />
-              <LrSchedule />
-              <HorizonCurves />
-              <Card>
-                <CardHeader title="Training recipe" subtitle="Stability measures from the report (§5.3)" />
-                <ul className="space-y-2.5 text-[13px] text-fg">
-                  {[
-                    ["Mixed precision", "torch.autocast fp16 + GradScaler cuts VRAM ~40%"],
-                    ["Gradient clipping", "‖g‖₂ ≤ 1.0 prevents explosions in ConvLSTM + Transformer"],
-                    ["Early stopping", "patience 8 on validation pinball loss"],
-                    ["Sparse attention gate", "λ‖gate‖₁ keeps attributions focused"],
-                    ["No look-ahead", "causal wavelet, causal attention mask, chronological split"],
-                    ["Reproducibility", "seeded runs; config + git SHA saved with every checkpoint"],
-                  ].map(([k, v]) => (
-                    <li key={k} className="flex gap-3">
-                      <Check className="mt-0.5 size-4 shrink-0 text-primary" />
-                      <span>
-                        <b>{k}.</b> <span className="text-fg-muted">{v}</span>
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </Card>
-            </div>
-          )}
-          {tab === "hyper" && (
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {HYPERPARAMS.map((g, i) => (
-                <motion.div key={g.group} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
-                  <Card className="h-full">
-                    <CardHeader title={g.group} />
-                    <dl className="divide-y divide-border">
-                      {g.items.map(([k, v]) => (
-                        <div key={k} className="flex items-start justify-between gap-4 py-2 text-[13px]">
-                          <dt className="text-fg-muted">{k}</dt>
-                          <dd className="text-right font-medium text-fg">{v}</dd>
-                        </div>
-                      ))}
-                    </dl>
-                  </Card>
-                </motion.div>
-              ))}
-            </div>
-          )}
-          {tab === "runs" && <Experiments />}
-        </motion.div>
-      </AnimatePresence>
-    </div>
-  );
-}
-
-function ModelComparison() {
-  const [h, setH] = useState<H>("24h");
-  const [m, setM] = useState<M>("mae");
-  const data = LADDER.map((r) => ({ name: SHORT[r.model] ?? r.model, full: r.model, v: r.metrics[h][m], ours: !!r.ours }));
-  return (
-    <Card className="h-full">
-      <CardHeader
-        title="Model comparison"
-        subtitle={`${m.toUpperCase()} at ${h} · lower is better${m === "r2" ? " (except R²)" : ""}`}
-        action={
-          <Segmented
-            size="sm"
-            value={m}
-            onChange={setM}
-            options={[
-              { value: "mae", label: "MAE" },
-              { value: "rmse", label: "RMSE" },
-              { value: "r2", label: "R²" },
-            ]}
-          />
-        }
-      />
-      <Segmented
-        size="sm"
-        className="mb-3"
-        value={h}
-        onChange={setH}
-        options={[
-          { value: "1h", label: "t+1" },
-          { value: "24h", label: "t+24" },
-          { value: "48h", label: "t+48" },
-        ]}
-      />
-      <div className="h-[330px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 18, right: 4, bottom: 0, left: -18 }}>
-            <defs>
-              <linearGradient id="ours-bar" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0" stopColor="#34d399" />
-                <stop offset="1" stopColor="var(--primary-strong)" />
-              </linearGradient>
-            </defs>
-            <CartesianGrid vertical={false} strokeDasharray="3 6" />
-            <XAxis dataKey="name" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} interval={0} angle={-30} textAnchor="end" height={52} />
-            <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} width={44} domain={m === "r2" ? [0, 1] : [0, "auto"]} />
-            <Tooltip
-              cursor={{ fill: "var(--surface-sunken)", opacity: 0.6 }}
-              content={({ active, payload }) => {
-                if (!active || !payload?.length) return null;
-                const d = payload[0].payload as (typeof data)[number];
-                return <ChartTip title={d.full} rows={[{ label: m.toUpperCase(), value: m === "r2" ? d.v.toFixed(2) : `${d.v.toFixed(1)} µg/m³` }]} />;
-              }}
-            />
-            <Bar dataKey="v" radius={[8, 8, 3, 3]} animationDuration={900} label={{ position: "top", fontSize: 10, fill: "var(--fg-muted)", formatter: (v: unknown) => (m === "r2" ? Number(v).toFixed(2) : Number(v).toFixed(1)) }}>
-              {data.map((d) => (
-                <Cell key={d.name} fill={d.ours ? "url(#ours-bar)" : "var(--border-strong)"} />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-    </Card>
-  );
-}
-
-function curves() {
-  const out = [];
-  for (let e = 1; e <= 60; e++) {
-    const train = 0.92 * Math.exp(-e / 9) + 0.17 + 0.012 * gaussian(7, e);
-    const val = 0.98 * Math.exp(-e / 10.5) + 0.225 + 0.016 * gaussian(11, e) + (e > 44 ? 0.0025 * (e - 44) : 0);
-    out.push({ e, train: Math.max(0.12, train), val: Math.max(0.16, val) });
-  }
-  return out;
-}
-
-function TrainingCurves({ compact }: { compact?: boolean }) {
-  const data = useMemo(() => curves(), []);
-  const best = data.reduce((m, d) => (d.val < m.val ? d : m), data[0]);
-  return (
-    <Card>
-      <CardHeader title="Training & validation loss" subtitle="Pinball loss (normalised) · illustrative" action={<Badge tone="warn">illustrative</Badge>} />
-      <Legend
-        className="mb-2"
-        items={[
-          { label: "Train", color: "#3b82f6" },
-          { label: "Validation", color: "var(--primary)" },
-        ]}
-      />
-      <div className={compact ? "h-[220px]" : "h-[280px]"}>
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -14 }}>
-            <CartesianGrid vertical={false} strokeDasharray="3 6" />
-            <XAxis dataKey="e" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-            <YAxis scale="log" domain={[0.1, 1.2]} tick={{ fontSize: 11 }} axisLine={false} tickLine={false} width={44} tickFormatter={(v: number) => v.toFixed(1)} />
-            <Tooltip
-              content={({ active, payload }) => {
-                if (!active || !payload?.length) return null;
-                const d = payload[0].payload as { e: number; train: number; val: number };
-                return (
-                  <ChartTip
-                    title={`Epoch ${d.e}`}
-                    rows={[
-                      { label: "Train", value: d.train.toFixed(3), color: "#3b82f6" },
-                      { label: "Validation", value: d.val.toFixed(3), color: "var(--primary)" },
-                    ]}
-                  />
-                );
-              }}
-            />
-            <ReferenceLine x={best.e} stroke="var(--fg-subtle)" strokeDasharray="3 4" label={{ value: "best ckpt", fontSize: 10, fill: "var(--fg-muted)", position: "insideTopRight" }} />
-            <Line type="monotone" dataKey="train" stroke="#3b82f6" strokeWidth={2} dot={false} />
-            <Line type="monotone" dataKey="val" stroke="var(--primary)" strokeWidth={2.4} dot={false} />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-    </Card>
-  );
-}
-
-function LrSchedule() {
-  const data = Array.from({ length: 60 }, (_, i) => {
-    const e = i + 1;
-    const lr = e <= 3 ? (1e-3 * e) / 3 : 1e-3 * 0.5 * (1 + Math.cos((Math.PI * (e - 3)) / 57));
-    return { e, lr: lr * 1000 };
-  });
-  return (
-    <Card>
-      <CardHeader title="Learning-rate schedule" subtitle="Linear warm-up (3 epochs) → cosine decay · ×10⁻³" />
-      <div className="h-[280px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -14 }}>
-            <CartesianGrid vertical={false} strokeDasharray="3 6" />
-            <XAxis dataKey="e" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} width={44} />
-            <Tooltip content={({ active, payload }) => (active && payload?.length ? <ChartTip title={`Epoch ${(payload[0].payload as { e: number }).e}`} rows={[{ label: "lr ×10⁻³", value: (payload[0].payload as { lr: number }).lr.toFixed(3) }]} /> : null)} />
-            <Line type="monotone" dataKey="lr" stroke="#8b5cf6" strokeWidth={2.4} dot={false} />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-    </Card>
-  );
-}
-
-function HorizonCurves() {
-  const data = Array.from({ length: 60 }, (_, i) => {
-    const e = i + 1;
-    const f = Math.exp(-e / 11);
-    return { e, h1: 7.4 + 18 * f, h24: 15.1 + 30 * f, h48: 19 + 34 * f };
-  });
-  return (
-    <Card>
-      <CardHeader title="Validation MAE by horizon" subtitle="µg/m³ per epoch · illustrative" action={<Badge tone="warn">illustrative</Badge>} />
-      <Legend
-        className="mb-2"
-        items={[
-          { label: "t+1", color: "#10b981" },
-          { label: "t+24", color: "#f59e0b" },
-          { label: "t+48", color: "#ef4444" },
-        ]}
-      />
-      <div className="h-[250px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -14 }}>
-            <CartesianGrid vertical={false} strokeDasharray="3 6" />
-            <XAxis dataKey="e" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} width={44} />
-            <Line type="monotone" dataKey="h1" stroke="#10b981" strokeWidth={2} dot={false} />
-            <Line type="monotone" dataKey="h24" stroke="#f59e0b" strokeWidth={2} dot={false} />
-            <Line type="monotone" dataKey="h48" stroke="#ef4444" strokeWidth={2} dot={false} />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-    </Card>
-  );
-}
-
-function PredVsActual() {
-  const anchor = useAnchor();
-  const city = useCity();
-  const data = useMemo(() => (anchor === null ? null : backtest(city, anchor, 24 * 21, 24, 4)), [anchor, city]);
-  return (
-    <Card>
-      <CardHeader title={`Predicted vs observed · ${city.name}`} subtitle="24 h-ahead, last 3 weeks (demo simulator)" action={<Badge tone="warn">simulated</Badge>} />
-      <Legend
-        className="mb-2"
-        items={[
-          { label: "Observed", color: "var(--fg)" },
-          { label: "Predicted", color: "var(--primary)" },
-        ]}
-      />
-      {data ? (
-        <div className="h-[220px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -14 }}>
-              <CartesianGrid vertical={false} strokeDasharray="3 6" />
-              <XAxis dataKey="t" tickFormatter={(t: number) => fmtDay(t)} tick={{ fontSize: 11 }} axisLine={false} tickLine={false} minTickGap={40} />
-              <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} width={44} />
-              <Line type="monotone" dataKey="actual" stroke="var(--fg)" strokeOpacity={0.6} strokeWidth={1.5} dot={false} />
-              <Line type="monotone" dataKey="pred" stroke="var(--primary)" strokeWidth={1.8} dot={false} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      ) : (
-        <Skeleton className="h-[220px]" />
-      )}
-    </Card>
-  );
-}
-
-function ErrorHistogram() {
-  const anchor = useAnchor();
-  const res = useMemo(() => {
-    if (anchor === null) return null;
-    const errs: number[] = [];
-    for (const c of CITIES) for (const b of backtest(c, anchor, 24 * 7, 24, 6)) errs.push(b.pred - b.actual);
-    const bins = Array.from({ length: 21 }, (_, i) => ({ x: -50 + i * 5, n: 0 }));
-    for (const e of errs) {
-      const i = Math.max(0, Math.min(20, Math.round((e + 50) / 5)));
-      bins[i].n++;
-    }
-    const mean = errs.reduce((a, b) => a + b, 0) / errs.length;
-    const sd = Math.sqrt(errs.reduce((a, b) => a + (b - mean) ** 2, 0) / errs.length);
-    const mae = errs.reduce((a, b) => a + Math.abs(b), 0) / errs.length;
-    return { bins, mean, sd, mae };
-  }, [anchor]);
-  return (
-    <Card>
-      <CardHeader title="Error distribution" subtitle="Predicted − observed, all cities, 24 h ahead" action={<Badge tone="warn">simulated</Badge>} />
-      {res ? (
-        <div className="flex gap-3">
-          <div className="h-[244px] flex-1">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={res.bins} margin={{ top: 8, right: 0, bottom: 0, left: -22 }} barCategoryGap={1}>
-                <CartesianGrid vertical={false} strokeDasharray="3 6" />
-                <XAxis dataKey="x" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} interval={4} />
-                <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} width={40} />
-                <ReferenceLine x={0} stroke="var(--fg-subtle)" strokeDasharray="3 3" />
-                <Bar dataKey="n" radius={[4, 4, 0, 0]} animationDuration={800}>
-                  {res.bins.map((b) => (
-                    <Cell key={b.x} fill={Math.abs(b.x) <= 10 ? "var(--primary)" : "color-mix(in oklab, var(--primary) 45%, transparent)"} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="w-[104px] space-y-2 rounded-2xl bg-surface-sunken/70 p-3 text-xs">
-            <Stat label="Mean error" value={res.mean.toFixed(1)} />
-            <Stat label="Std. dev." value={res.sd.toFixed(1)} />
-            <Stat label="MAE" value={res.mae.toFixed(1)} />
-          </div>
-        </div>
-      ) : (
-        <Skeleton className="h-[244px]" />
-      )}
-    </Card>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <div className="text-[10.5px] text-fg-muted">{label}</div>
-      <div className="font-display text-base font-bold tabular text-fg">
-        {value}
-        <span className="ml-0.5 text-[9.5px] font-medium text-fg-subtle">µg/m³</span>
-      </div>
-    </div>
-  );
-}
-
-function Ablation() {
-  const [h, setH] = useState<H>("24h");
-  const rows = LADDER;
-  const maxMae = Math.max(...rows.map((r) => r.metrics[h].mae));
-  return (
-    <Card>
-      <CardHeader
-        title="Ablation ladder"
-        subtitle="Each rung adds one component; Δ is relative to the previous rung"
-        action={
-          <Segmented
-            size="sm"
-            value={h}
-            onChange={setH}
-            options={[
-              { value: "1h", label: "t+1" },
-              { value: "24h", label: "t+24" },
-              { value: "48h", label: "t+48" },
-            ]}
-          />
-        }
-      />
-      <div className="-mx-2 overflow-x-auto">
-        <table className="w-full min-w-[760px] text-sm">
-          <thead>
-            <tr className="text-left text-[11px] uppercase tracking-wider text-fg-subtle">
-              <th className="px-2 pb-2 font-semibold">Rung</th>
-              <th className="px-2 pb-2 font-semibold">Model</th>
-              <th className="px-2 pb-2 font-semibold">Adds</th>
-              <th className="px-2 pb-2 font-semibold">MAE</th>
-              <th className="px-2 pb-2 text-right font-semibold">RMSE</th>
-              <th className="px-2 pb-2 text-right font-semibold">R²</th>
-              <th className="px-2 pb-2 text-right font-semibold">Δ MAE</th>
-              <th className="px-2 pb-2 text-right font-semibold">Params</th>
+                  <span className="font-num w-12 text-right text-xs text-fg-muted">{fmtBig(r.n_rows)}</span>
+                </div>
+              </td>
+              <td className="font-num text-right text-fg-muted">{r.n_stations}</td>
+              <td className="font-num text-right text-xs text-fg-muted">
+                {r.first_seen.slice(0, 4)}–{r.last_seen.slice(0, 7)}
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            {rows.map((r, i) => {
-              const prev = rows[i - 1];
-              const delta = prev ? r.metrics[h].mae - prev.metrics[h].mae : 0;
-              return (
-                <motion.tr
-                  key={r.rung}
-                  initial={{ opacity: 0, x: -8 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.04 }}
-                  className={cn("border-t border-border", r.ours && "bg-primary-soft/70")}
-                >
-                  <td className="px-2 py-2.5">
-                    <span className={cn("rounded-md px-1.5 py-0.5 font-mono text-[11px] font-bold", r.ours ? "bg-primary text-primary-fg" : "bg-surface-sunken text-fg-muted")}>{r.rung}</span>
-                  </td>
-                  <td className={cn("px-2 py-2.5 font-medium", r.ours ? "text-primary" : "text-fg")}>{r.model}</td>
-                  <td className="px-2 py-2.5 text-xs text-fg-muted">{r.adds}</td>
-                  <td className="px-2 py-2.5">
-                    <div className="flex items-center gap-2">
-                      <div className="h-1.5 w-28 overflow-hidden rounded-full bg-surface-sunken">
-                        <motion.div
-                          className={cn("h-full rounded-full", r.ours ? "bg-primary" : "bg-fg-subtle")}
-                          initial={{ width: 0 }}
-                          animate={{ width: `${(r.metrics[h].mae / maxMae) * 100}%` }}
-                          transition={{ delay: 0.1 + i * 0.04, duration: 0.6 }}
-                        />
-                      </div>
-                      <span className="font-semibold tabular text-fg">{r.metrics[h].mae.toFixed(1)}</span>
-                    </div>
-                  </td>
-                  <td className="px-2 py-2.5 text-right tabular text-fg-muted">{r.metrics[h].rmse.toFixed(1)}</td>
-                  <td className="px-2 py-2.5 text-right tabular text-fg-muted">{r.metrics[h].r2.toFixed(2)}</td>
-                  <td className={cn("px-2 py-2.5 text-right font-semibold tabular", delta < 0 ? "text-emerald-600 dark:text-emerald-300" : delta > 0 ? "text-red-500" : "text-fg-subtle")}>
-                    {prev ? `${delta > 0 ? "+" : ""}${delta.toFixed(1)}` : "—"}
-                  </td>
-                  <td className="px-2 py-2.5 text-right font-mono text-xs text-fg-subtle">{r.params}</td>
-                </motion.tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-      <p className="mt-4 text-xs leading-relaxed text-fg-muted">
-        Ladder methodology: whichever rung is best on validation at the freeze date ships under its own name. If a later rung does not improve on an earlier one, that is
-        reported as a finding rather than hidden.
-      </p>
-    </Card>
-  );
-}
-
-function AdjacencyHeatmap() {
-  const anchor = useAnchor();
-  const cities = useMemo(() => [...CITIES].sort((a, b) => b.lat - a.lat), []);
-  const m = useMemo(() => (anchor === null ? null : adjacencyMatrix(anchor, cities)), [anchor, cities]);
-  const [hover, setHover] = useState<[number, number] | null>(null);
-  if (!m) return <Skeleton className="aspect-square w-full" />;
-  const max = Math.max(...m.flat());
-  return (
-    <div className="flex flex-col gap-3 lg:flex-row">
-      <div className="grid flex-1 gap-[2px]" style={{ gridTemplateColumns: `repeat(${cities.length}, minmax(0, 1fr))` }} onMouseLeave={() => setHover(null)}>
-        {m.flatMap((row, i) =>
-          row.map((v, j) => (
-            <div
-              key={`${i}-${j}`}
-              onMouseEnter={() => setHover([i, j])}
-              className={cn("aspect-square rounded-[2px] transition-transform duration-150", hover && hover[0] === i && hover[1] === j && "scale-150 ring-1 ring-fg")}
-              style={{ background: v > 0 ? `color-mix(in oklab, var(--primary) ${Math.round(18 + (v / max) * 82)}%, transparent)` : "var(--surface-sunken)" }}
-            />
-          )),
-        )}
-      </div>
-      <div className="w-full shrink-0 rounded-2xl bg-surface-sunken/70 p-3 text-xs lg:w-44">
-        {hover ? (
-          <>
-            <div className="text-fg-muted">From</div>
-            <div className="font-semibold text-fg">{cities[hover[0]].name}</div>
-            <div className="mt-1 text-fg-muted">To</div>
-            <div className="font-semibold text-fg">{cities[hover[1]].name}</div>
-            <div className="mt-2 font-display text-lg font-bold text-primary tabular">{m[hover[0]][hover[1]].toFixed(3)}</div>
-          </>
-        ) : (
-          <div className="text-fg-muted">Hover a cell. Rows are sources, columns targets, sorted north → south. Weights follow the wind, so the matrix changes hour by hour.</div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function Experiments() {
-  const [copied, setCopied] = useState(false);
-  const cmd = "make data && make train RUN=r6-full-s42 && make eval RUN=r6-full-s42";
-  return (
-    <div className="grid gap-4 xl:grid-cols-12">
-      <Card className="xl:col-span-7">
-        <CardHeader title="Experiment runs" subtitle="Registered in ml/configs/ablations — each produces ml/runs/<run_id>/" />
-        <div className="space-y-2">
-          {EXPERIMENTS.map((e, i) => (
-            <motion.div
-              key={e.id}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.05 }}
-              className="flex items-center gap-3 rounded-xl border border-border bg-surface-2 px-3 py-2.5"
-            >
-              <span className="size-2 rounded-full bg-amber-400" />
-              <span className="font-mono text-xs font-semibold text-fg">{e.id}</span>
-              <span className="hidden text-xs text-fg-muted sm:inline">{e.model}</span>
-              <span className="ml-auto text-xs text-fg-subtle">{e.notes}</span>
-              <Badge tone="warn">{e.status}</Badge>
-            </motion.div>
           ))}
-        </div>
-      </Card>
-      <Card className="xl:col-span-5">
-        <CardHeader title="Reproduce" subtitle="One command per stage" icon={<Terminal className="size-4" />} />
-        <div className="relative rounded-2xl bg-[#0b1512] p-4 font-mono text-[12.5px] leading-relaxed text-emerald-200">
-          <button
-            onClick={() => {
-              navigator.clipboard?.writeText(cmd);
-              setCopied(true);
-              setTimeout(() => setCopied(false), 1500);
-            }}
-            className="absolute right-3 top-3 grid size-8 place-items-center rounded-lg bg-white/10 text-white/80 hover:bg-white/20"
-            aria-label="Copy"
-          >
-            {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
-          </button>
-          <div className="text-white/40"># from the repository root</div>
-          <div>
-            <span className="text-white/50">$</span> make data
-          </div>
-          <div>
-            <span className="text-white/50">$</span> make train RUN=r6-full-s42
-          </div>
-          <div>
-            <span className="text-white/50">$</span> make eval RUN=r6-full-s42
-          </div>
-          <div className="mt-2 text-white/40"># → ml/runs/r6-full-s42/metrics.json</div>
-        </div>
-        <p className="mt-3 text-xs leading-relaxed text-fg-muted">
-          Every run stores its config, git commit and metrics. The API&apos;s <code className="font-mono">/metrics</code> endpoint serves them to this page.
-        </p>
-      </Card>
+        </tbody>
+      </table>
     </div>
+  );
+}
+
+function Coverage({ snap, features, coverage }: { snap: LiveSnapshot; features: string[]; coverage: number[] }) {
+  const meta = Object.fromEntries(snap.tensor.features.map((f) => [f.key, f]));
+  return (
+    <div className="grid grid-cols-1 gap-x-4 gap-y-1.5 sm:grid-cols-2">
+      {features.map((k, i) => {
+        const f = meta[k];
+        const cov = coverage[i] ?? 0;
+        return (
+          <div key={k} className="flex items-center gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[12px] font-medium text-fg">{f?.label ?? k}</div>
+              <div className="truncate text-[10px] text-fg-subtle">{f?.source ?? ""}</div>
+            </div>
+            <div className="h-1.5 w-14 overflow-hidden rounded-full bg-surface-sunken">
+              <div className={cn("h-full rounded-full", cov > 0.95 ? "bg-emerald-400" : cov > 0.7 ? "bg-amber-400" : "bg-red-400")} style={{ width: `${cov * 100}%` }} />
+            </div>
+            <span className="font-num w-9 text-right text-[11px] text-fg-muted">{Math.round(cov * 100)}%</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function WindGraph({ snap }: { snap: LiveSnapshot }) {
+  const setCity = useAppStore((s) => s.setCity);
+  const [hover, setHover] = useState<[number, number] | null>(null);
+  const cities = useMemo(() => [...snap.cities].sort((a, b) => a.lon - b.lon), [snap]);
+  const { W, edges } = useMemo(() => windGraph(cities), [cities]);
+  const n = cities.length;
+  const max = Math.max(...W.flat(), 1e-6);
+  const size = 330;
+  const cell = size / n;
+  return (
+    <>
+      <CardHeader
+        title="City graph from live winds"
+        subtitle="Directed weights: how strongly air at one city is carried toward another right now (distance × wind alignment × wind speed). The graph module starts from this prior."
+        icon={<Network className="size-4" />}
+      />
+      <div className="flex flex-col gap-5 lg:flex-row">
+        <div className="shrink-0">
+          <svg width={size} height={size} className="rounded-xl bg-black/20" onMouseLeave={() => setHover(null)}>
+            {W.map((row, i) =>
+              row.map((w, j) =>
+                w > 0 ? (
+                  <rect
+                    key={`${i}-${j}`}
+                    x={j * cell}
+                    y={i * cell}
+                    width={cell - 0.5}
+                    height={cell - 0.5}
+                    fill="#2dd4bf"
+                    fillOpacity={0.15 + 0.85 * (w / max)}
+                    onMouseEnter={() => setHover([i, j])}
+                  />
+                ) : null,
+              ),
+            )}
+            {Array.from({ length: n }, (_, i) => (
+              <rect key={i} x={i * cell} y={i * cell} width={cell - 0.5} height={cell - 0.5} fill="rgba(255,255,255,0.08)" />
+            ))}
+          </svg>
+          <div className="mt-1.5 flex justify-between text-[10px] text-fg-subtle" style={{ width: size }}>
+            <span>rows: source city (west → east)</span>
+            <span>cols: receiving city</span>
+          </div>
+          <div className="mt-1 h-5 text-xs text-fg">
+            {hover ? (
+              <>
+                {cities[hover[0]].name} → {cities[hover[1]].name} · <b className="font-num">{W[hover[0]][hover[1]].toFixed(2)}</b>
+              </>
+            ) : (
+              <span className="text-fg-muted">Hover a cell</span>
+            )}
+          </div>
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-fg-subtle">Strongest transport links now</div>
+          <div className="space-y-1.5">
+            {edges.slice(0, 9).map((e) => (
+              <button key={`${e.from.slug}-${e.to.slug}`} onClick={() => setCity(e.to.slug)} className="flex w-full items-center gap-2 rounded-xl bg-surface-sunken px-3 py-2 text-left">
+                <span className="size-2 rounded-full" style={{ background: categoryForPm(e.from.pm25 ?? 0).color }} />
+                <span className="truncate text-[13px] font-medium text-fg">{e.from.name}</span>
+                <ArrowRight className="size-3.5 shrink-0 text-fg-subtle" />
+                <span className="truncate text-[13px] font-medium text-fg">{e.to.name}</span>
+                <span className="font-num ml-auto shrink-0 text-[11px] text-fg-muted">
+                  {Math.round(e.km)} km · <b className="text-fg">{e.w.toFixed(2)}</b>
+                </span>
+              </button>
+            ))}
+            {!edges.length && <div className="text-sm text-fg-muted">Winds are too light for meaningful transport right now.</div>}
+          </div>
+        </div>
+      </div>
+    </>
   );
 }

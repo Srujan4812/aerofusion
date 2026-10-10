@@ -5,8 +5,6 @@ import { motion } from "motion/react";
 import { GlassNote, PageHero } from "@/components/layout/page-hero";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader } from "@/components/ui/card";
-import { METRICS_STATUS } from "@/data/model-lab";
-import { DATA_MODE } from "@/lib/nav";
 
 const TEAM = [
   { name: "Shashank Ravindra Karanam", usn: "1BM23CS312" },
@@ -17,17 +15,18 @@ const TEAM = [
 
 const STACK = [
   { group: "Frontend", items: ["Next.js 16 (App Router)", "React 19", "TypeScript", "Tailwind CSS v4", "Motion", "Lenis", "Recharts", "d3-geo / d3-zoom", "Radix UI", "cmdk"] },
-  { group: "Backend", items: ["FastAPI", "Pydantic v2", "Uvicorn", "APScheduler"] },
+  { group: "Backend", items: ["FastAPI", "Uvicorn", "httpx (async)", "NumPy tensor store"] },
   { group: "Machine learning", items: ["PyTorch 2", "PyWavelets", "scikit-learn", "LightGBM", "SHAP"] },
-  { group: "Data", items: ["OpenAQ v3 (CPCB)", "Open-Meteo / ERA5", "NASA FIRMS", "CAMS (benchmark)", "DataMeet boundaries"] },
+  { group: "Data", items: ["CPCB via XKDR archive", "Copernicus CAMS", "Open-Meteo", "NASA FIRMS", "NASA GIBS", "MapLibre + CARTO", "DataMeet boundaries"] },
 ];
 
 const ATTRIBUTION = [
   { label: "India boundaries", by: "DataMeet India community", licence: "CC BY 4.0", url: "https://github.com/datameet/maps" },
-  { label: "Air-quality observations", by: "CPCB via OpenAQ", licence: "GODL-India / CC BY 4.0", url: "https://openaq.org" },
-  { label: "Weather reanalysis", by: "ECMWF ERA5 via Open-Meteo", licence: "CC BY 4.0", url: "https://open-meteo.com" },
-  { label: "Active fires", by: "NASA FIRMS (VIIRS, MODIS)", licence: "NASA open data", url: "https://firms.modaps.eosdis.nasa.gov" },
-  { label: "Benchmark forecasts", by: "Copernicus CAMS", licence: "CAMS licence", url: "https://atmosphere.copernicus.eu" },
+  { label: "Measured air quality", by: "CPCB CAAQMS via XKDR India Air Quality API", licence: "GODL-India", url: "https://airquality.xkdr.org" },
+  { label: "Weather", by: "Open-Meteo (ECMWF, GFS & others)", licence: "CC BY 4.0", url: "https://open-meteo.com" },
+  { label: "Active fires", by: "NASA FIRMS (VIIRS)", licence: "NASA open data", url: "https://firms.modaps.eosdis.nasa.gov" },
+  { label: "Satellite imagery", by: "NASA GIBS / Worldview", licence: "NASA open data", url: "https://www.earthdata.nasa.gov/gibs" },
+  { label: "Air-quality model", by: "Copernicus CAMS via Open-Meteo", licence: "CC BY 4.0", url: "https://atmosphere.copernicus.eu" },
 ];
 
 export function AboutView() {
@@ -123,26 +122,28 @@ export function AboutView() {
           <CardHeader title="Integrity & data provenance" subtitle="What you are looking at, stated plainly" icon={<ShieldCheck className="size-4" />} />
           <ul className="space-y-3 text-[14px] leading-relaxed text-fg-muted">
             <li className="flex gap-3">
-              <Badge tone={DATA_MODE === "demo" ? "warn" : "primary"} className="mt-0.5 shrink-0">
-                {DATA_MODE === "demo" ? "Demo mode" : "API mode"}
+              <Badge tone="primary" className="mt-0.5 shrink-0">
+                Live
               </Badge>
-              <span>
-                {DATA_MODE === "demo"
-                  ? "Values in this build come from a deterministic, physically-motivated simulator so the interface can be developed while the model trains. They are not observations and not model outputs."
-                  : "Values are served by the AeroFusion API from logged model runs."}
-              </span>
+              <span>Current and forecast PM2.5 is the Copernicus CAMS model, with Open-Meteo weather, NASA FIRMS fires and NASA GIBS imagery, refreshed every 10 minutes by the AeroFusion backend. CAMS is always labelled as CAMS.</span>
             </li>
             <li className="flex gap-3">
-              <Badge tone={METRICS_STATUS === "measured" ? "primary" : "warn"} className="mt-0.5 shrink-0">
-                {METRICS_STATUS === "measured" ? "Measured" : "Illustrative"}
+              <Badge tone="primary" className="mt-0.5 shrink-0">
+                Measured
               </Badge>
-              <span>Model Lab metrics are flagged illustrative until they are read from <code className="font-mono text-xs">ml/runs/&lt;run_id&gt;/metrics.json</code>.</span>
+              <span>History and baselines are CPCB monitor measurements from the XKDR India Air Quality archive (558 stations, 2009–2026).</span>
+            </li>
+            <li className="flex gap-3">
+              <Badge tone="warn" className="mt-0.5 shrink-0">
+                Not trained
+              </Badge>
+              <span>MW-AeroFusion-Net has not been trained yet, so no accuracy figures are shown anywhere. Model Lab shows the real training data and its readiness instead.</span>
             </li>
             <li className="flex gap-3">
               <Badge tone="accent" className="mt-0.5 shrink-0">
-                Benchmark
+                Scenarios
               </Badge>
-              <span>CAMS forecasts are shown only as an external benchmark, clearly labelled, and never presented as our model.</span>
+              <span>The What-if simulator applies transparent, documented sensitivities on top of the live CAMS forecast. It is a sensitivity tool, not a model prediction.</span>
             </li>
             <li className="flex gap-3">
               <Badge tone="neutral" className="mt-0.5 shrink-0">
@@ -173,7 +174,7 @@ export function AboutView() {
 
         <Card className="xl:col-span-12">
           <CardHeader title="Data & attribution" icon={<Scale className="size-4" />} />
-          <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-5">
+          <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
             {ATTRIBUTION.map((a) => (
               <a key={a.label} href={a.url} target="_blank" rel="noreferrer" className="group rounded-2xl border border-border bg-surface-2 p-3.5 transition hover:border-border-strong hover:shadow-card">
                 <div className="flex items-center justify-between">

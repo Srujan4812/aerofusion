@@ -85,6 +85,20 @@ async def _cached(key: str, ttl: float, fn):
     return val
 
 
+@app.get("/api/history")
+async def history_all():
+    """Measured monthly PM2.5 for all cities from the CPCB archive (XKDR), 2022–2024."""
+    key = os.getenv("XKDR_API_KEY")
+    if not key:
+        raise HTTPException(503, "XKDR_API_KEY not configured")
+
+    async def run():
+        async with httpx.AsyncClient(timeout=120) as client:
+            return await S.cpcb_history_all(client, key)
+
+    return await _cached("hist:all", 24 * 3600, run)
+
+
 @app.get("/api/history/{city}")
 async def history(city: str):
     """Measured monthly PM2.5 from the CPCB archive (XKDR) for 2022–2024."""

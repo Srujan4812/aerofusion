@@ -7,12 +7,11 @@ import { useTheme } from "next-themes";
 import { usePathname, useRouter } from "next/navigation";
 import { Dialog } from "radix-ui";
 import { useEffect, useMemo } from "react";
-import { useAnchor } from "@/hooks/use-anchor";
 import { useAppStore } from "@/hooks/use-app-store";
+import { useLive } from "@/hooks/use-live";
 import { categoryForPm } from "@/lib/aqi";
 import { CITIES } from "@/lib/cities";
 import { ALL_NAV } from "@/lib/nav";
-import { pmAt } from "@/lib/sim/core";
 
 const itemCls =
   "group flex cursor-pointer items-center gap-3 rounded-2xl px-3 py-2.5 text-sm text-fg-muted outline-none transition-colors data-[selected=true]:bg-surface-sunken data-[selected=true]:text-fg";
@@ -24,7 +23,7 @@ export function CommandMenu() {
   const router = useRouter();
   const pathname = usePathname();
   const { resolvedTheme, setTheme } = useTheme();
-  const anchor = useAnchor();
+  const { snap } = useLive();
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -42,8 +41,8 @@ export function CommandMenu() {
   }, [setOpen]);
 
   const cityValues = useMemo(
-    () => (anchor ? Object.fromEntries(CITIES.map((c) => [c.slug, pmAt(c, anchor)])) : {}),
-    [anchor],
+    () => (snap ? Object.fromEntries(snap.cities.filter((c) => c.pm25 !== null).map((c) => [c.slug, c.pm25 as number])) : ({} as Record<string, number>)),
+    [snap],
   );
 
   const go = (href: string) => {

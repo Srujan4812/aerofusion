@@ -7,43 +7,44 @@ import { Popover } from "radix-ui";
 import { useMemo } from "react";
 import { AqiBadge, Dot } from "@/components/ui/badge";
 import { Kbd, Tip } from "@/components/ui/primitives";
-import { useAnchor, useClock } from "@/hooks/use-anchor";
+import { useClock } from "@/hooks/use-anchor";
+import { useLive } from "@/hooks/use-live";
 import { useAppStore } from "@/hooks/use-app-store";
 import { fmtDateTimeMs } from "@/lib/format";
-import { DATA_MODE } from "@/lib/nav";
-import { nationalSnapshot } from "@/lib/sim/national";
+import { citySeries, fmtIst, peak, window } from "@/lib/live";
 import { cn } from "@/lib/utils";
 import { LogoMark } from "./logo";
 import { ThemeToggle } from "./theme-toggle";
 
 function DataModePill() {
-  const demo = DATA_MODE === "demo";
+  const { snap, error, countdown } = useLive();
+  const state = snap && !error ? "live" : error ? "offline" : "connecting";
+  const ok = snap?.sources.filter((x) => x.ok).length ?? 0;
+  const color = state === "live" ? "#10b981" : state === "offline" ? "#ef4444" : "#f59e0b";
   return (
     <Tip
       content={
-        demo ? (
-          <div className="space-y-1">
-            <div className="font-semibold">Demo data</div>
-            <div className="text-fg-muted">
-              Values come from a deterministic simulator so the interface can be built while MW-AeroFusion-Net is trained. Set{" "}
-              <code className="font-mono">NEXT_PUBLIC_API_URL</code> to show model outputs from the API.
-            </div>
+        <div className="space-y-1">
+          <div className="font-semibold">{state === "live" ? "Live data" : state === "offline" ? "Backend offline" : "Connecting…"}</div>
+          <div className="text-fg-muted">
+            {snap
+              ? `${ok}/${snap.sources.length} sources online · last sync ${fmtIst(Date.parse(snap.updated_at), { hour: "numeric", minute: "2-digit", hour12: true })}${countdown !== null ? ` · next in ${Math.floor(countdown / 60)}:${String(countdown % 60).padStart(2, "0")}` : ""}`
+              : (error ?? "Waiting for the AeroFusion API")}
           </div>
-        ) : (
-          "Connected to the AeroFusion API — model outputs."
-        )
+        </div>
       }
       side="bottom"
     >
-      <div
+      <Link
+        href="/pipeline"
         className={cn(
           "hidden h-8 items-center gap-1.5 rounded-full px-3 text-[11.5px] font-semibold sm:flex",
-          demo ? "bg-amber-400/15 text-amber-700 dark:text-amber-300" : "bg-emerald-400/15 text-emerald-700 dark:text-emerald-300",
+          state === "live" ? "bg-emerald-400/15 text-emerald-300" : state === "offline" ? "bg-red-400/15 text-red-300" : "bg-amber-400/15 text-amber-300",
         )}
       >
-        <Dot color={demo ? "#f59e0b" : "#10b981"} pulse />
-        {demo ? "Demo data" : "Live"}
-      </div>
+        <Dot color={color} pulse />
+        {state === "live" ? "Live" : state === "offline" ? "Offline" : "Connecting"}
+      </Link>
     </Tip>
   );
 }
@@ -59,8 +60,17 @@ function Clock() {
 }
 
 function Notifications() {
-  const anchor = useAnchor();
-  const alerts = useMemo(() => (anchor ? nationalSnapshot(anchor).alerts : []), [anchor]);
+  const setCity = useAppStore((s) => s.setCity);
+  const { snap } = useLive();
+  const alerts = useMemo(() => {
+    if (!snap) return [];
+    const now = Date.parse(snap.updated_at);
+    return snap.cities
+      .map((c) => ({ c, p: peak(window(citySeries(c, now), 1, 24)) }))
+      .filter((a) => (a.p?.pm25 ?? 0) > 90)
+      .sort((a, b) => (b.p!.pm25 ?? 0) - (a.p!.pm25 ?? 0))
+      .map(({ c, p }) => ({ city: c, peak24: p!.pm25 ?? 0, peakLead: p!.lead }));
+  }, [snap]);
   return (
     <Popover.Root>
       <Popover.Trigger asChild>
@@ -82,12 +92,12 @@ function Notifications() {
         >
           <div className="flex items-center justify-between px-3 py-2">
             <div className="font-display text-[15px] font-semibold">Forecast alerts</div>
-            <span className="text-[11px] text-fg-subtle">next 24 h</span>
+            <span className="text-[11px] text-fg-subtle">CAMS · next 24 h</span>
           </div>
           <div className="max-h-[360px] space-y-1 overflow-y-auto" data-lenis-prevent>
             {alerts.length === 0 && <div className="px-3 py-6 text-center text-xs text-fg-muted">No cities forecast to cross “Poor”.</div>}
             {alerts.map((a) => (
-              <Link key={a.city.slug} href={`/forecast?city=${a.city.slug}`} className="flex items-start gap-3 rounded-2xl px-3 py-2.5 transition hover:bg-surface-sunken">
+              <Link key={a.city.slug} href="/forecast" onClick={() => setCity(a.city.slug)} className="flex items-start gap-3 rounded-2xl px-3 py-2.5 transition hover:bg-surface-sunken">
                 <div className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-full bg-red-500/10 text-red-500">
                   <TriangleAlert className="size-4" />
                 </div>

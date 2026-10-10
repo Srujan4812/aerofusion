@@ -44,3 +44,10 @@ Docs / README      ████░░░░░░░░░░░░░░░░ 
 ```bash
 cd frontend && npm install && npm run dev   # http://localhost:3000
 ```
+
+
+## Real-data overhaul (2026-10-10)
+`[####################] 100%`
+- All dashboards run on real data: Overview, Forecast (CAMS + Open-Meteo), Live Map, Explainability (live Spearman drivers, daily cycle, z-scores), Model Lab (CPCB archive 196M rows, tensor coverage, live wind graph, honest training status), Reports (CPCB 2022–2024 monthly/daily via `/api/history`), Simulator (live CAMS baseline), Home, topbar alerts and Live/Offline pill.
+- Removed: architecture diagram, illustrative metrics, simulated backtests, demo-mode labels, old data-sources and pipeline views.
+- Next: historical backfill → train MW-AeroFusion-Net → replace CAMS lines with model forecasts.

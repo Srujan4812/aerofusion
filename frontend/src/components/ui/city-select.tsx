@@ -4,20 +4,19 @@ import { Command } from "cmdk";
 import { Check, ChevronDown, MapPin, Search } from "lucide-react";
 import { Popover } from "radix-ui";
 import { useMemo, useState } from "react";
-import { useAnchor } from "@/hooks/use-anchor";
 import { useAppStore } from "@/hooks/use-app-store";
+import { useLive } from "@/hooks/use-live";
 import { categoryForPm } from "@/lib/aqi";
 import { CITIES, getCity } from "@/lib/cities";
-import { pmAt } from "@/lib/sim/core";
 import { cn } from "@/lib/utils";
 
 export function CitySelect({ className, size = "md" }: { className?: string; size?: "md" | "lg" }) {
   const slug = useAppStore((s) => s.city);
   const setCity = useAppStore((s) => s.setCity);
-  const anchor = useAnchor();
+  const { snap } = useLive();
   const [open, setOpen] = useState(false);
   const city = getCity(slug);
-  const values = useMemo(() => (anchor ? Object.fromEntries(CITIES.map((c) => [c.slug, pmAt(c, anchor)])) : {}), [anchor]);
+  const values = useMemo<Record<string, number>>(() => (snap ? Object.fromEntries(snap.cities.filter((c) => c.pm25 !== null).map((c) => [c.slug, c.pm25 as number])) : {}), [snap]);
 
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>

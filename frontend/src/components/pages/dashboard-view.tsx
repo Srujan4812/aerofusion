@@ -1,73 +1,40 @@
 "use client";
 
-import { ArrowRight, Factory, Flame, Gauge, ShieldCheck, Sparkles, TriangleAlert, Users } from "lucide-react";
+import { ArrowRight, Database, Factory, Flame, Gauge, MountainSnow, ShieldCheck, Sparkles, TriangleAlert, Users, Wind } from "lucide-react";
 import { motion } from "motion/react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Donut } from "@/components/charts/donut";
 import { Sparkline } from "@/components/charts/sparkline";
+import { LiveGate, SourceNote } from "@/components/live/live-gate";
 import { PageHero } from "@/components/layout/page-hero";
-import { AtmosMap, HeatLegend } from "@/components/map/atmos-map";
 import { AqiBadge, Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Kpi } from "@/components/ui/kpi";
 import { AnimatedNumber, Delta, Skeleton } from "@/components/ui/primitives";
 import { Stagger, StaggerItem } from "@/components/ui/reveal";
-import { useAnchor, useClock } from "@/hooks/use-anchor";
 import { useAppStore } from "@/hooks/use-app-store";
-import { useCity } from "@/hooks/use-city";
-import { categoryForPm, NAAQS_PM25_24H, pmToAqi } from "@/lib/aqi";
-import { fmtHour } from "@/lib/format";
-import { fireHotspots, pmAt } from "@/lib/sim/core";
-import { globalImportance } from "@/lib/sim/explain";
-import { forecastSeries } from "@/lib/sim/forecast";
-import { nationalSnapshot } from "@/lib/sim/national";
-import { DATA_MODE } from "@/lib/nav";
-import { METRICS_STATUS } from "@/data/model-lab";
+import { useLive, type LiveSnapshot } from "@/hooks/use-live";
+import { AQI_CATEGORIES, categoryForPm, NAAQS_PM25_24H, pmToAqi } from "@/lib/aqi";
+import { citySeries, fmtIst, mean, national, peak, window } from "@/lib/live";
 import { cn } from "@/lib/utils";
 
-function greeting(ms: number | null) {
-  if (ms === null) return "Welcome";
-  const h = (new Date(ms).getUTCHours() + 5.5) % 24;
-  if (h < 5) return "Good night";
-  if (h < 12) return "Good morning";
-  if (h < 17) return "Good afternoon";
-  return "Good evening";
-}
+const RealMap = dynamic(() => import("@/components/map/real-map").then((m) => m.RealMap), { ssr: false, loading: () => <Skeleton className="absolute inset-4" /> });
 
 export function DashboardView() {
-  const anchor = useAnchor();
-  const clock = useClock();
-  const city = useCity();
-  const setCity = useAppStore((s) => s.setCity);
-
-  const data = useMemo(() => {
-    if (anchor === null) return null;
-    const nat = nationalSnapshot(anchor);
-    const fires = fireHotspots(anchor, 300);
-    const spark = Object.fromEntries(
-      nat.cities.map((c) => [c.city.slug, Array.from({ length: 13 }, (_, i) => pmAt(c.city, anchor - 24 + i * 2))]),
-    );
-    const natSpark = Array.from({ length: 25 }, (_, i) => nat.cities.reduce((s, c) => s + pmAt(c.city, anchor - 48 + i * 2), 0) / nat.cities.length);
-    const importance = globalImportance(anchor, 24, 6).slice(0, 5);
-    return { nat, fires, spark, natSpark, importance };
-  }, [anchor]);
-
-  const mine = useMemo(() => {
-    if (anchor === null) return null;
-    const s = forecastSeries(city, anchor, 24, 0, 1);
-    return { now: s[0].truth, next: s.map((p) => p.pred), peak: Math.max(...s.map((p) => p.pred)) };
-  }, [anchor, city]);
-
-  const nat = data?.nat;
+  const { snap } = useLive();
+  const nat = snap ? national(snap) : null;
   const natCat = categoryForPm(nat?.avg ?? 50);
-
+  const spark = useMemo(() => {
+    if (!snap) return [];
+    const n = snap.cities[0]?.pm25_24h.length ?? 0;
+    return Array.from({ length: n }, (_, i) => mean(snap.cities.map((c) => c.pm25_24h[i])) ?? 0);
+  }, [snap]);
   return (
     <div>
       <PageHero
-        sky={{ pm: nat?.avg ?? 55, landmark: "taj", seed: 11 }}
-        eyebrow={<Badge tone="primary">{greeting(clock)} · India air briefing</Badge>}
         title={
           <>
             Air Quality <span className="text-gradient">Overview</span>
@@ -76,25 +43,25 @@ export function DashboardView() {
         subtitle={
           nat ? (
             <>
-              National average is <b className="text-fg">{Math.round(nat.avg)} µg/m³</b> ({natCat.label.toLowerCase()}).{" "}
-              <b className="text-fg">{nat.aboveNaaqs}</b> of {nat.cities.length} cities exceed the 24-h NAAQS of {NAAQS_PM25_24H} µg/m³ right now.
+              National average is <b className="text-fg">{Math.round(nat.avg)} µg/m³</b> right now. <b className="text-fg">{nat.aboveNaaqs}</b> of {nat.count} cities exceed the 24-h NAAQS of{" "}
+              {NAAQS_PM25_24H} µg/m³ (CAMS, live).
             </>
           ) : (
-            "Loading the national picture…"
+            "Connecting to the live backend…"
           )
         }
         aside={
-          <div className="glass w-[300px] rounded-3xl border border-white/40 p-4 shadow-lift dark:border-white/10">
+          <div className="glass w-[300px] rounded-[28px] p-4">
             <div className="flex items-center justify-between">
-              <div className="text-xs font-medium text-fg-muted">National avg · 48 h</div>
+              <div className="text-xs font-medium text-fg-muted">National avg · last 24 h</div>
               {nat && <AqiBadge pm={nat.avg} size="xs" />}
             </div>
             <div className="mt-1 flex items-end justify-between gap-3">
-              <div className="font-display text-4xl font-bold leading-none text-fg">
+              <div className="font-num text-4xl font-semibold leading-none text-fg">
                 {nat ? <AnimatedNumber value={Math.round(nat.avg)} /> : "—"}
                 <span className="ml-1 text-xs font-medium text-fg-muted">µg/m³</span>
               </div>
-              {data && <Sparkline values={data.natSpark} width={130} height={44} color={natCat.color} />}
+              {spark.length > 2 && <Sparkline values={spark} width={130} height={44} color={natCat.color} />}
             </div>
           </div>
         }
@@ -102,7 +69,7 @@ export function DashboardView() {
         <div className="flex flex-wrap gap-3">
           <Button asChild size="lg">
             <Link href="/forecast">
-              Open {city.name} forecast <ArrowRight />
+              Open forecast <ArrowRight />
             </Link>
           </Button>
           <Button asChild size="lg" variant="secondary">
@@ -110,171 +77,126 @@ export function DashboardView() {
           </Button>
         </div>
       </PageHero>
+      <LiveGate>{(s) => <Body snap={s} />}</LiveGate>
+    </div>
+  );
+}
 
+function Body({ snap }: { snap: LiveSnapshot }) {
+  const selected = useAppStore((s) => s.city);
+  const setCity = useAppStore((s) => s.setCity);
+  const [now] = useState(() => Date.now());
+  const nat = national(snap);
+  const series = useMemo(() => Object.fromEntries(snap.cities.map((c) => [c.slug, citySeries(c, now)])), [snap, now]);
+  const sel = snap.cities.find((c) => c.slug === selected) ?? snap.cities[0];
+  const next24 = window(series[sel.slug], 0, 24);
+  const selPeak = peak(next24);
+  const alerts = snap.cities
+    .map((c) => ({ c, p: peak(window(series[c.slug], 1, 24)) }))
+    .filter((a) => a.p && (a.p.pm25 ?? 0) > 90)
+    .sort((a, b) => (b.p!.pm25 ?? 0) - (a.p!.pm25 ?? 0));
+  const signals = [
+    { icon: <Flame className="size-4" />, tint: "#f97316", title: "Most upwind fires", c: [...snap.cities].sort((a, b) => (b.fires_upwind ?? 0) - (a.fires_upwind ?? 0))[0], v: (c: (typeof snap.cities)[number]) => `${c.fires_upwind ?? 0} fires upwind` },
+    { icon: <MountainSnow className="size-4" />, tint: "#a78bfa", title: "Shallowest mixing layer", c: [...snap.cities].filter((c) => c.pblh !== null).sort((a, b) => (a.pblh ?? 0) - (b.pblh ?? 0))[0], v: (c: (typeof snap.cities)[number]) => `${Math.round(c.pblh ?? 0)} m PBLH` },
+    { icon: <Wind className="size-4" />, tint: "#38bdf8", title: "Most stagnant air", c: [...snap.cities].filter((c) => c.wind !== null).sort((a, b) => (a.wind ?? 0) - (b.wind ?? 0))[0], v: (c: (typeof snap.cities)[number]) => `${(c.wind ?? 0).toFixed(1)} m/s wind` },
+    { icon: <Factory className="size-4" />, tint: "#eab308", title: "Highest dust load", c: [...snap.cities].filter((c) => c.dust !== null).sort((a, b) => (b.dust ?? 0) - (a.dust ?? 0))[0], v: (c: (typeof snap.cities)[number]) => `${Math.round(c.dust ?? 0)} µg/m³ dust` },
+  ];
+  const counts = AQI_CATEGORIES.map((cat) => ({ key: cat.key, label: cat.label, color: cat.color, value: nat.sorted.filter((c) => categoryForPm(c.pm25 ?? 0).key === cat.key).length })).filter((d) => d.value > 0);
+
+  return (
+    <>
       <Stagger className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StaggerItem>
-          <Kpi
-            icon={<Gauge />}
-            label="National average PM2.5"
-            value={nat ? Math.round(nat.avg) : undefined}
-            unit="µg/m³"
-            tint={natCat.color}
-            footer={nat && (<><Delta value={nat.change24} /> <span>vs same hour yesterday</span></>)}
-          />
+          <Kpi icon={<Gauge />} label="National average PM2.5" value={Math.round(nat.avg)} unit="µg/m³" tint={categoryForPm(nat.avg).color} footer={<><Delta value={nat.change24} /> <span>vs 24 h ago</span></>} />
         </StaggerItem>
         <StaggerItem>
-          <Kpi
-            icon={<TriangleAlert />}
-            label="Cities above NAAQS"
-            value={nat?.aboveNaaqs}
-            unit={nat ? `/ ${nat.cities.length}` : undefined}
-            tint="#f97316"
-            footer={nat && <span>{nat.improving} cities improving vs yesterday</span>}
-          />
+          <Kpi icon={<TriangleAlert />} label="Cities above NAAQS" value={nat.aboveNaaqs} unit={`/ ${nat.count}`} tint="#fb923c" footer={<span>PM2.5 &gt; 60 µg/m³ now</span>} />
         </StaggerItem>
         <StaggerItem>
-          <Kpi
-            icon={<Users />}
-            label="People exposed"
-            value={nat ? Number(nat.exposed.toFixed(1)) : undefined}
-            digits={1}
-            unit="million"
-            tint="#ef4444"
-            footer={nat && <span>in cities above 60 µg/m³ (of {nat.popTotal.toFixed(0)} M)</span>}
-          />
+          <Kpi icon={<Users />} label="People exposed" value={Number(nat.exposedM.toFixed(1))} digits={1} unit="million" tint="#f87171" footer={<span>urban population in those cities</span>} />
         </StaggerItem>
         <StaggerItem>
-          <Kpi
-            icon={<Flame />}
-            label="Fire detections today"
-            value={data?.fires.total}
-            tint="#f59e0b"
-            footer={<span>NASA FIRMS-style (demo)</span>}
-          />
+          <Kpi icon={<Flame />} label="Fire detections · 24 h" value={snap.fires.total} tint="#fbbf24" footer={<span>NASA FIRMS VIIRS</span>} />
         </StaggerItem>
       </Stagger>
 
       <div className="mt-4 grid gap-4 xl:grid-cols-12">
         <Card padded={false} className="relative h-[540px] overflow-hidden xl:col-span-7">
-          <div className="absolute left-5 top-4 z-10">
-            <div className="font-display text-base font-semibold text-fg">PM2.5 across India</div>
-            <div className="text-xs text-fg-muted">Interpolated surface · click a city to focus it</div>
-          </div>
-          {data && anchor !== null ? (
-            <AtmosMap
-              t={anchor}
-              cities={data.nat.cities.map((c) => ({ slug: c.city.slug, name: c.city.name, lat: c.city.lat, lon: c.city.lon, value: c.pm }))}
-              fires={data.fires.points}
-              selected={city.slug}
-              onSelect={setCity}
-              padding={40}
-              wind
-            />
-          ) : (
-            <Skeleton className="absolute inset-4" />
-          )}
-          <div className="absolute bottom-4 right-4 z-10">
-            <HeatLegend title="PM2.5 (µg/m³)" />
+          <RealMap
+            basemap="dark"
+            cities={snap.cities.map((c) => ({ slug: c.slug, name: c.name, lat: c.lat, lon: c.lon, pm25: c.pm25, wind: c.wind, windDir: c.wind_dir }))}
+            fires={snap.fires.points}
+            wind={false}
+            labels={false}
+            selected={sel.slug}
+            onSelect={setCity}
+          />
+          <div className="glass pointer-events-none absolute left-4 top-4 z-10 rounded-2xl px-3 py-2">
+            <div className="text-sm font-semibold text-fg">PM2.5 across India</div>
+            <div className="text-[11px] text-fg-muted">CAMS live · fires: NASA FIRMS · click a city</div>
           </div>
         </Card>
 
         <div className="grid gap-4 xl:col-span-5">
           <Card>
-            <CardHeader
-              title={`${city.name} · next 24 h`}
-              subtitle="Your selected city"
-              action={
-                <Link href="/forecast" className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
-                  Details <ArrowRight className="size-3.5" />
-                </Link>
-              }
-            />
-            {mine ? (
-              <div className="flex items-center gap-5">
-                <AqiRing pm={mine.now} />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <AqiBadge pm={mine.now} />
-                    <span className="text-xs text-fg-muted">AQI {pmToAqi(mine.now)}</span>
-                  </div>
-                  <Sparkline values={mine.next} width={260} height={64} color={categoryForPm(mine.peak).color} className="mt-2 w-full" />
-                  <div className="mt-1 flex justify-between text-[11px] text-fg-subtle">
-                    <span>Now</span>
-                    <span>
-                      Peak <b className="text-fg">{Math.round(mine.peak)}</b> µg/m³
-                    </span>
-                    <span>+24 h</span>
-                  </div>
+            <CardHeader title={`${sel.name} · next 24 h`} subtitle="CAMS forecast (Copernicus)" action={<Link href="/forecast" className="text-xs font-semibold text-primary">Details →</Link>} />
+            <div className="flex items-center gap-5">
+              <Ring pm={sel.pm25 ?? 0} />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <AqiBadge pm={sel.pm25 ?? 0} />
+                  <span className="text-xs text-fg-muted">AQI ≈ {pmToAqi(sel.pm25 ?? 0)}</span>
+                </div>
+                {next24.length > 2 && (
+                  <Sparkline values={next24.map((p) => p.pm25 ?? 0)} width={260} height={64} color={categoryForPm(selPeak?.pm25 ?? 0).color} className="mt-2 w-full" />
+                )}
+                <div className="mt-1 flex justify-between text-[11px] text-fg-subtle">
+                  <span>Now</span>
+                  <span>
+                    Peak <b className="font-num text-fg">{Math.round(selPeak?.pm25 ?? 0)}</b> at {selPeak ? fmtIst(selPeak.ms) : "—"}
+                  </span>
+                  <span>+24 h</span>
                 </div>
               </div>
-            ) : (
-              <Skeleton className="h-28" />
-            )}
+            </div>
           </Card>
 
           <Card>
-            <CardHeader title="Forecast alerts" subtitle="Cities expected to reach “Poor” or worse in 24 h" icon={<TriangleAlert className="size-4" />} />
+            <CardHeader title="Forecast alerts" subtitle="Cities forecast (CAMS) to reach “Poor” (> 90) in 24 h" icon={<TriangleAlert className="size-4" />} />
             <div className="space-y-1.5">
-              {nat ? (
-                nat.alerts.length ? (
-                  nat.alerts.slice(0, 4).map((a, i) => (
-                    <motion.button
-                      key={a.city.slug}
-                      initial={{ opacity: 0, x: 10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: i * 0.06 }}
-                      onClick={() => setCity(a.city.slug)}
-                      className="flex w-full items-center gap-3 rounded-xl border border-border bg-surface-2 px-3 py-2 text-left transition hover:border-border-strong hover:bg-surface-sunken"
-                    >
-                      <span className="size-2.5 rounded-full" style={{ background: categoryForPm(a.peak24).color }} />
-                      <span className="flex-1 text-sm font-medium text-fg">{a.city.name}</span>
-                      <span className="text-xs text-fg-muted">
-                        {Math.round(a.pm)} → <b className="text-fg">{Math.round(a.peak24)}</b> at {fmtHour((anchor ?? 0) + a.peakLead)}
-                      </span>
-                    </motion.button>
-                  ))
-                ) : (
-                  <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-3 py-3 text-sm text-emerald-700 dark:text-emerald-300">
-                    <ShieldCheck className="size-4" /> No cities forecast to cross “Poor” in the next 24 h.
-                  </div>
-                )
+              {alerts.length ? (
+                alerts.slice(0, 4).map(({ c, p }) => (
+                  <button key={c.slug} onClick={() => setCity(c.slug)} className="flex w-full items-center gap-3 rounded-xl bg-surface-sunken px-3 py-2 text-left">
+                    <span className="size-2.5 rounded-full" style={{ background: categoryForPm(p!.pm25 ?? 0).color }} />
+                    <span className="flex-1 text-sm font-medium text-fg">{c.name}</span>
+                    <span className="text-xs text-fg-muted">
+                      {Math.round(c.pm25 ?? 0)} → <b className="font-num text-fg">{Math.round(p!.pm25 ?? 0)}</b> at {fmtIst(p!.ms)}
+                    </span>
+                  </button>
+                ))
               ) : (
-                <Skeleton className="h-24" />
+                <div className="flex items-center gap-2 rounded-xl bg-emerald-500/15 px-3 py-3 text-sm text-emerald-200">
+                  <ShieldCheck className="size-4" /> No city is forecast to cross “Poor” in the next 24 h.
+                </div>
               )}
             </div>
           </Card>
 
           <Card>
-            <CardHeader
-              title="What’s driving PM2.5 today"
-              subtitle="Mean |attribution| across all cities, last 24 h"
-              icon={<Sparkles className="size-4" />}
-              action={
-                <Link href="/explainability" className="text-xs font-semibold text-primary hover:underline">
-                  Explain
-                </Link>
-              }
-            />
-            <div className="space-y-2.5">
-              {data
-                ? data.importance.map((f, i) => (
-                    <div key={f.key}>
-                      <div className="mb-1 flex justify-between text-xs">
-                        <span className="text-fg-muted">{f.label}</span>
-                        <span className="font-semibold tabular text-fg">{f.value.toFixed(0)}%</span>
-                      </div>
-                      <div className="h-2 overflow-hidden rounded-full bg-surface-sunken">
-                        <motion.div
-                          className="h-full rounded-full"
-                          style={{ background: f.color }}
-                          initial={{ width: 0 }}
-                          animate={{ width: `${(f.value / data.importance[0].value) * 100}%` }}
-                          transition={{ delay: 0.1 + i * 0.08, duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-                        />
-                      </div>
+            <CardHeader title="Today’s signals" subtitle="Live conditions that push PM2.5 up" icon={<Sparkles className="size-4" />} />
+            <div className="grid grid-cols-2 gap-2">
+              {signals.map((s) =>
+                s.c ? (
+                  <button key={s.title} onClick={() => setCity(s.c.slug)} className="rounded-2xl bg-surface-sunken p-3 text-left">
+                    <div className="flex items-center gap-1.5 text-[11px] text-fg-muted">
+                      <span style={{ color: s.tint }}>{s.icon}</span>
+                      {s.title}
                     </div>
-                  ))
-                : [0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-7" />)}
+                    <div className="mt-1 text-sm font-semibold text-fg">{s.c.name}</div>
+                    <div className="font-num text-xs text-fg-muted">{s.v(s.c)}</div>
+                  </button>
+                ) : null,
+              )}
             </div>
           </Card>
         </div>
@@ -282,90 +204,69 @@ export function DashboardView() {
 
       <div className="mt-4 grid gap-4 xl:grid-cols-12">
         <Card className="xl:col-span-8">
-          <CardHeader title="City rankings" subtitle="Live PM2.5, 24-h trend and next-24-h peak" icon={<Factory className="size-4" />} />
+          <CardHeader title="City rankings" subtitle="Live PM2.5, last 24 h and next-24-h peak (CAMS)" icon={<Factory className="size-4" />} />
           <div className="-mx-2 overflow-x-auto">
             <table className="w-full min-w-[640px] text-sm">
               <thead>
-                <tr className="text-left text-[11px] uppercase tracking-wider text-fg-subtle">
-                  <th className="px-2 pb-2 font-semibold">#</th>
-                  <th className="px-2 pb-2 font-semibold">City</th>
-                  <th className="px-2 pb-2 text-right font-semibold">PM2.5</th>
-                  <th className="px-2 pb-2 font-semibold">Category</th>
-                  <th className="px-2 pb-2 font-semibold">Last 24 h</th>
-                  <th className="px-2 pb-2 text-right font-semibold">24 h peak</th>
-                  <th className="px-2 pb-2 text-right font-semibold">Δ 24 h</th>
+                <tr className="text-left text-[11px] uppercase tracking-wider text-fg-subtle [&>th]:px-2 [&>th]:pb-2">
+                  <th>#</th>
+                  <th>City</th>
+                  <th className="text-right">PM2.5</th>
+                  <th>Category</th>
+                  <th>Last 24 h</th>
+                  <th className="text-right">24 h peak</th>
+                  <th className="text-right">Δ 24 h</th>
                 </tr>
               </thead>
               <tbody>
-                {nat
-                  ? nat.sorted.slice(0, 10).map((c, i) => (
-                      <motion.tr
-                        key={c.city.slug}
-                        initial={{ opacity: 0, y: 6 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: i * 0.03 }}
-                        onClick={() => setCity(c.city.slug)}
-                        className={cn("cursor-pointer border-t border-border transition hover:bg-surface-sunken/60", c.city.slug === city.slug && "bg-primary-soft/60")}
-                      >
-                        <td className="px-2 py-2.5 text-xs font-semibold text-fg-subtle">{i + 1}</td>
-                        <td className="px-2 py-2.5">
-                          <div className="font-medium text-fg">{c.city.name}</div>
-                          <div className="text-[11px] text-fg-subtle">{c.city.state}</div>
-                        </td>
-                        <td className="px-2 py-2.5 text-right font-display font-bold tabular text-fg">{Math.round(c.pm)}</td>
-                        <td className="px-2 py-2.5">
-                          <AqiBadge pm={c.pm} size="xs" />
-                        </td>
-                        <td className="px-2 py-2.5">
-                          {data && <Sparkline values={data.spark[c.city.slug]} width={110} height={28} color={c.category.color} dot={false} />}
-                        </td>
-                        <td className="px-2 py-2.5 text-right tabular text-fg-muted">{Math.round(c.peak24)}</td>
-                        <td className="px-2 py-2.5 text-right">
-                          <Delta value={c.change24} />
-                        </td>
-                      </motion.tr>
-                    ))
-                  : null}
+                {nat.sorted.slice(0, 10).map((c, i) => {
+                  const pk = peak(window(series[c.slug], 1, 24));
+                  const past = c.pm25_24h.filter((v): v is number => v !== null);
+                  const d = past.length ? (((c.pm25 ?? 0) - past[0]) / past[0]) * 100 : 0;
+                  return (
+                    <tr key={c.slug} onClick={() => setCity(c.slug)} className={cn("cursor-pointer border-t border-border [&>td]:px-2 [&>td]:py-2.5", c.slug === sel.slug && "bg-surface-sunken")}>
+                      <td className="text-xs font-semibold text-fg-subtle">{i + 1}</td>
+                      <td>
+                        <div className="font-medium text-fg">{c.name}</div>
+                        <div className="text-[11px] text-fg-subtle">{c.state}</div>
+                      </td>
+                      <td className="font-num text-right font-semibold text-fg">{Math.round(c.pm25 ?? 0)}</td>
+                      <td>
+                        <AqiBadge pm={c.pm25 ?? 0} size="xs" />
+                      </td>
+                      <td>{past.length > 2 && <Sparkline values={past} width={110} height={28} color={categoryForPm(c.pm25 ?? 0).color} dot={false} />}</td>
+                      <td className="font-num text-right text-fg-muted">{Math.round(pk?.pm25 ?? 0)}</td>
+                      <td className="text-right">
+                        <Delta value={d} />
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
-            {!nat && <Skeleton className="mx-2 h-64" />}
           </div>
         </Card>
-
         <div className="grid gap-4 xl:col-span-4">
           <Card>
-            <CardHeader title="Stations by category" subtitle="CPCB AQI classes" />
-            {nat ? (
-              <Donut
-                size={170}
-                data={nat.counts.filter((c) => c.stations > 0).map((c) => ({ key: c.key, label: c.label, value: c.stations, color: c.color }))}
-                center={
-                  <div>
-                    <div className="font-display text-2xl font-bold text-fg">{nat.stations}</div>
-                    <div className="text-[11px] text-fg-muted">stations</div>
-                  </div>
-                }
-              />
-            ) : (
-              <Skeleton className="h-44" />
-            )}
+            <CardHeader title="Cities by category" subtitle="CPCB PM2.5 classes, now" />
+            <Donut size={160} data={counts} center={<div className="font-num text-2xl font-semibold text-fg">{nat.count}</div>} />
           </Card>
-          <Card className="overflow-hidden">
-            <div className="pointer-events-none absolute -right-8 -top-8 size-40 rounded-full bg-primary/15 blur-3xl" />
-            <CardHeader title="Model status" subtitle="Serving configuration" icon={<ShieldCheck className="size-4" />} />
+          <Card>
+            <CardHeader title="Data status" icon={<Database className="size-4" />} />
             <dl className="space-y-2 text-sm">
-              <Row label="Model" value="MW-AeroFusion-Net" />
-              <Row label="Data mode" value={DATA_MODE === "demo" ? <Badge tone="warn">Demo simulator</Badge> : <Badge tone="primary">API</Badge>} />
-              <Row label="Metrics" value={METRICS_STATUS === "measured" ? <Badge tone="primary">Measured</Badge> : <Badge tone="warn">Illustrative</Badge>} />
-              <Row label="Horizons" value="1 h · 24 h · 48 h" />
+              <Row label="Sources online" value={`${snap.sources.filter((s) => s.ok).length} / ${snap.sources.length}`} />
+              <Row label="Last sync" value={fmtIst(Date.parse(snap.updated_at), { hour: "numeric", minute: "2-digit", hour12: true })} />
+              <Row label="Unified tensor" value={snap.tensor.shape.join(" × ")} />
+              <Row label="Forecast model" value={<Badge tone="warn">training pending</Badge>} />
             </dl>
-            <Button asChild variant="soft" size="sm" className="mt-4 w-full">
-              <Link href="/model-lab">Open Model Lab</Link>
+            <Button asChild variant="secondary" size="sm" className="mt-4 w-full">
+              <Link href="/pipeline">Open Live Data</Link>
             </Button>
           </Card>
         </div>
       </div>
-    </div>
+      <SourceNote>PM2.5 values and forecasts: CAMS (Copernicus) via Open-Meteo · weather: Open-Meteo · fires: NASA FIRMS · populations: Census-based estimates.</SourceNote>
+    </>
   );
 }
 
@@ -378,34 +279,18 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-function AqiRing({ pm }: { pm: number }) {
+function Ring({ pm }: { pm: number }) {
   const cat = categoryForPm(pm);
-  const aqi = pmToAqi(pm);
-  const frac = Math.min(1, aqi / 500);
+  const frac = Math.min(1, pmToAqi(pm) / 500);
   const C = 2 * Math.PI * 42;
   return (
     <div className="relative grid size-[112px] shrink-0 place-items-center">
       <svg viewBox="0 0 100 100" className="absolute inset-0 -rotate-90">
-        <circle cx="50" cy="50" r="42" fill="none" stroke="var(--surface-sunken)" strokeWidth="9" />
-        <motion.circle
-          cx="50"
-          cy="50"
-          r="42"
-          fill="none"
-          stroke={cat.color}
-          strokeWidth="9"
-          strokeLinecap="round"
-          strokeDasharray={C}
-          initial={{ strokeDashoffset: C }}
-          animate={{ strokeDashoffset: C * (1 - frac) }}
-          transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1] }}
-          style={{ filter: `drop-shadow(0 0 6px ${cat.color}66)` }}
-        />
+        <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="9" />
+        <motion.circle cx="50" cy="50" r="42" fill="none" stroke={cat.color} strokeWidth="9" strokeLinecap="round" strokeDasharray={C} initial={{ strokeDashoffset: C }} animate={{ strokeDashoffset: C * (1 - frac) }} transition={{ duration: 1.2 }} />
       </svg>
       <div className="text-center">
-        <div className="font-display text-[26px] font-bold leading-none text-fg">
-          <AnimatedNumber value={Math.round(pm)} />
-        </div>
+        <div className="font-num text-[26px] font-semibold leading-none text-fg">{Math.round(pm)}</div>
         <div className="mt-1 text-[10px] text-fg-muted">µg/m³</div>
       </div>
     </div>

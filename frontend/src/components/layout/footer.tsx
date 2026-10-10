@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { DATA_MODE } from "@/lib/nav";
 
 export function Footer() {
   return (
@@ -10,10 +9,7 @@ export function Footer() {
         </div>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
           <span>
-            Mode:{" "}
-            <span className={DATA_MODE === "demo" ? "font-semibold text-amber-600 dark:text-amber-300" : "font-semibold text-primary"}>
-              {DATA_MODE === "demo" ? "Demo simulator" : "API"}
-            </span>
+            Data: <span className="font-semibold text-primary">CAMS · Open-Meteo · NASA FIRMS & GIBS · CPCB (XKDR)</span>
           </span>
           <span>
             Boundaries:{" "}

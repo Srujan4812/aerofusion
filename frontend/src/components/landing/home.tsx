@@ -26,14 +26,11 @@ import { Area, AreaChart, ReferenceDot, ResponsiveContainer, Tooltip, XAxis, YAx
 import { LogoMark } from "@/components/layout/logo";
 import { AqiBadge } from "@/components/ui/badge";
 import { AnimatedNumber } from "@/components/ui/primitives";
-import { useAnchor } from "@/hooks/use-anchor";
+import { useLive, type LiveSnapshot } from "@/hooks/use-live";
 import { useAppStore } from "@/hooks/use-app-store";
 import { categoryForPm, pmColor } from "@/lib/aqi";
-import { CITIES, CITY_BY_SLUG } from "@/lib/cities";
-import { fmtHour } from "@/lib/format";
-import { DATA_MODE } from "@/lib/nav";
-import { pmAt } from "@/lib/sim/core";
-import { forecastSeries } from "@/lib/sim/forecast";
+import { CITY_BY_SLUG } from "@/lib/cities";
+import { citySeries, fmtIst, window as win } from "@/lib/live";
 import { cn } from "@/lib/utils";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
@@ -200,8 +197,8 @@ function Hero({ delhi }: { delhi: number | null }) {
 function StatCards({ line }: { line: number[] }) {
   const items = [
     { href: "/live-map", icon: <Building2 />, title: "33 Cities", sub: "Across India", visual: <MiniBars values={[3, 5, 4, 7, 6, 9, 8, 10, 7, 9]} /> },
-    { href: "/forecast", icon: <Clock3 />, title: "1–48h Forecasts", sub: "Hourly predictions", visual: <MiniLine values={line} /> },
-    { href: "/data-sources", icon: <Layers3 />, title: "Multi-Source Data", sub: "CPCB, ERA5, NASA & more", visual: <LayerStack size={0.85} /> },
+    { href: "/forecast", icon: <Clock3 />, title: "4-day Forecasts", sub: "Hourly, live CAMS", visual: <MiniLine values={line} /> },
+    { href: "/data-sources", icon: <Layers3 />, title: "Multi-Source Data", sub: "CAMS, NASA, Open-Meteo, CPCB", visual: <LayerStack size={0.85} /> },
     { href: "/explainability", icon: <BrainCircuit />, title: "Explainable AI", sub: "Understand key factors", visual: <MiniBars values={[4, 7, 5, 9, 6, 10, 8]} color="#38bdf8" /> },
   ];
   return (
@@ -223,13 +220,13 @@ function StatCards({ line }: { line: number[] }) {
   );
 }
 
-function CityList({ anchor, selected, onSelect }: { anchor: number | null; selected: string; onSelect: (s: string) => void }) {
+function CityList({ snap, selected, onSelect }: { snap: LiveSnapshot | null; selected: string; onSelect: (s: string) => void }) {
   const [q, setQ] = useState("");
   const rows = useMemo(() => {
-    if (anchor === null) return [];
-    const list = CITIES.map((c) => ({ c, v: pmAt(c, anchor) })).filter(({ c }) => c.name.toLowerCase().includes(q.trim().toLowerCase()));
+    if (!snap) return [];
+    const list = snap.cities.map((c) => ({ c, v: c.pm25 ?? 0 })).filter(({ c }) => c.name.toLowerCase().includes(q.trim().toLowerCase()));
     return q ? list : list.filter(({ c }) => ["delhi", "bengaluru", "mumbai", "hyderabad", "chennai", "kolkata", "lucknow"].includes(c.slug));
-  }, [anchor, q]);
+  }, [snap, q]);
   return (
     <GlassPanel className="flex h-full flex-col p-5 text-white">
       <label className="flex h-12 items-center gap-3 rounded-full bg-white/10 px-4 shadow-[inset_0_0_0_0.75px_rgba(255,255,255,0.28)]">
@@ -262,14 +259,15 @@ function CityList({ anchor, selected, onSelect }: { anchor: number | null; selec
   );
 }
 
-function RealtimeChart({ anchor, slug }: { anchor: number | null; slug: string }) {
+function RealtimeChart({ snap, slug }: { snap: LiveSnapshot | null; slug: string }) {
   const [h, setH] = useState<24 | 48>(24);
   const [open, setOpen] = useState(false);
   const city = CITY_BY_SLUG[slug];
   const data = useMemo(() => {
-    if (anchor === null) return [];
-    return forecastSeries(city, anchor, h, h, h === 24 ? 1 : 2).map((p) => ({ t: p.t, v: p.lead <= 0 ? (p.actual ?? p.pred) : p.pred, lead: p.lead }));
-  }, [anchor, city, h]);
+    const lc = snap?.cities.find((c) => c.slug === slug);
+    if (!lc || !snap) return [];
+    return win(citySeries(lc, Date.parse(snap.updated_at)), -h, h).filter((p) => p.pm25 !== null).map((p) => ({ t: p.ms, v: p.pm25 as number, lead: p.lead }));
+  }, [snap, slug, h]);
   const peak = data.reduce((m, d) => (d.v > m.v ? d : m), data[0] ?? { t: 0, v: 0, lead: 0 });
   return (
     <GlassPanel className="h-full p-6 text-white">
@@ -277,7 +275,7 @@ function RealtimeChart({ anchor, slug }: { anchor: number | null; slug: string }
         <div>
           <div className="font-display text-xl">Real-time Air Quality</div>
           <div className="mt-0.5 text-[13px] text-white/70">
-            {city.name} · observed and forecast PM2.5{DATA_MODE === "demo" ? " · demo data" : ""}
+            {city.name} · CAMS PM2.5, past & forecast (live)
           </div>
         </div>
         <div className="relative">
@@ -319,14 +317,14 @@ function RealtimeChart({ anchor, slug }: { anchor: number | null; slug: string }
                   <stop offset="1" stopColor="#ffffff" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <XAxis dataKey="t" tickFormatter={(t: number) => fmtHour(t)} tick={{ fill: "rgba(255,255,255,0.7)", fontSize: 11 }} axisLine={{ stroke: "rgba(255,255,255,0.2)" }} tickLine={false} minTickGap={40} />
+              <XAxis dataKey="t" tickFormatter={(t: number) => fmtIst(t)} tick={{ fill: "rgba(255,255,255,0.7)", fontSize: 11 }} axisLine={{ stroke: "rgba(255,255,255,0.2)" }} tickLine={false} minTickGap={40} />
               <YAxis tick={{ fill: "rgba(255,255,255,0.7)", fontSize: 11 }} axisLine={false} tickLine={false} width={44} />
               <Tooltip
                 cursor={{ stroke: "rgba(255,255,255,0.4)", strokeDasharray: "4 4" }}
                 content={({ active, payload }) =>
                   active && payload?.length ? (
                     <div className="glass-hero rounded-2xl px-3 py-2 text-xs text-white">
-                      <div className="font-semibold">{fmtHour((payload[0].payload as { t: number }).t)}</div>
+                      <div className="font-semibold">{fmtIst((payload[0].payload as { t: number }).t)}</div>
                       <div className="font-num">{Math.round((payload[0].payload as { v: number }).v)} µg/m³</div>
                     </div>
                   ) : null
@@ -353,11 +351,11 @@ function RealtimeChart({ anchor, slug }: { anchor: number | null; slug: string }
 function DataSourcesCard() {
   const feeds = [
     { icon: <Flame className="size-5" />, name: "NASA FIRMS", sub: "Fire hotspots", tint: "#f97316" },
-    { icon: <MapPin className="size-5" />, name: "CPCB Sensors", sub: "Ground PM2.5", tint: "#a78bfa" },
-    { icon: <CloudSun className="size-5" />, name: "ERA5 / IMD Weather", sub: "Meteorological data", tint: "#f59e0b" },
-    { icon: <Satellite className="size-5" />, name: "Sentinel-5P", sub: "Atmospheric data", tint: "#38bdf8" },
+    { icon: <MapPin className="size-5" />, name: "CPCB (XKDR)", sub: "Measured PM2.5 archive", tint: "#a78bfa" },
+    { icon: <CloudSun className="size-5" />, name: "Open-Meteo", sub: "Live weather", tint: "#f59e0b" },
+    { icon: <Satellite className="size-5" />, name: "CAMS + NASA GIBS", sub: "Aerosol model & satellite imagery", tint: "#38bdf8" },
   ];
-  const demo = DATA_MODE === "demo";
+  const demo = false;
   return (
     <GlassPanel className="p-6 text-white">
       <div className="flex items-center gap-2 font-display text-xl">
@@ -435,13 +433,13 @@ function ModelCard() {
   );
 }
 
-function FloatingWidgets({ anchor }: { anchor: number | null }) {
-  const line = useMemo(() => (anchor === null ? [1, 2, 3, 2, 4] : forecastSeries(CITY_BY_SLUG.mumbai, anchor, 24, 0, 3).map((p) => p.pred)), [anchor]);
+function FloatingWidgets({ snap }: { snap: LiveSnapshot | null }) {
+  const line = useMemo(() => { const m = snap?.cities.find((c) => c.slug === "mumbai"); return m && snap ? win(citySeries(m, Date.parse(snap.updated_at)), 0, 24).map((p) => p.pm25 ?? 0) : [1, 2, 3, 2, 4]; }, [snap]);
   const top = useMemo(
-    () => (anchor === null ? [] : CITIES.map((c) => ({ c, v: pmAt(c, anchor) })).sort((a, b) => b.v - a.v).slice(0, 3)),
-    [anchor],
+    () => (!snap ? [] : snap.cities.map((c) => ({ c, v: c.pm25 ?? 0 })).sort((a, b) => b.v - a.v).slice(0, 3)),
+    [snap],
   );
-  const avg = useMemo(() => (anchor === null ? 0 : CITIES.reduce((s, c) => s + pmAt(c, anchor), 0) / CITIES.length), [anchor]);
+  const avg = useMemo(() => (!snap ? 0 : snap.cities.reduce((s, c) => s + (c.pm25 ?? 0), 0) / snap.cities.length), [snap]);
   return (
     <div className="relative grid grid-cols-2 gap-4 lg:block lg:h-full">
       <motion.div {...reveal} className="lg:absolute lg:left-[4%] lg:top-[4%]">
@@ -481,8 +479,8 @@ function FloatingWidgets({ anchor }: { anchor: number | null }) {
       </motion.div>
       <motion.div {...reveal} transition={{ ...reveal.transition, delay: 0.3 }} className="lg:absolute lg:right-[4%] lg:top-[52%]">
         <GlassPanel className="w-full p-4 text-white lg:w-[170px]">
-          <div className="text-[11px] font-semibold uppercase tracking-wider text-white/70">Forecast skill</div>
-          <MiniBars values={[5, 7, 6, 9, 8, 10]} color="#60a5fa" />
+          <div className="text-[11px] font-semibold uppercase tracking-wider text-white/70">Fires today · {snap?.fires.total ?? "—"}</div>
+          <MiniBars values={snap?.fires.regions.slice(0, 6).map((r) => r.count) ?? [1, 1]} color="#f97316" />
         </GlassPanel>
       </motion.div>
     </div>
@@ -505,7 +503,7 @@ function Footer() {
         <Link href="/data-sources" className="hover:text-white">Data Sources</Link>
         <Link href="/about" className="hover:text-white">About</Link>
       </div>
-      <div className="text-xs text-white/60">© 2026 AeroFusion{DATA_MODE === "demo" ? " · Demo data" : ""}</div>
+      <div className="text-xs text-white/60">© 2026 AeroFusion · Live data</div>
     </footer>
   );
 }
@@ -513,11 +511,12 @@ function Footer() {
 /* ─────────────────────────── page ─────────────────────────── */
 
 export function HomePage() {
-  const anchor = useAnchor();
+  const { snap } = useLive();
   const selected = useAppStore((s) => s.city);
   const setCity = useAppStore((s) => s.setCity);
-  const delhi = useMemo(() => (anchor === null ? null : pmAt(CITY_BY_SLUG.delhi, anchor)), [anchor]);
-  const line = useMemo(() => (anchor === null ? [3, 4, 3, 5, 4, 6, 5, 7] : forecastSeries(CITY_BY_SLUG.delhi, anchor, 24, 0, 3).map((p) => p.pred)), [anchor]);
+  const dl = snap?.cities.find((c) => c.slug === "delhi");
+  const delhi = dl?.pm25 ?? null;
+  const line = useMemo(() => (dl && snap ? win(citySeries(dl, Date.parse(snap.updated_at)), 0, 24).map((p) => p.pm25 ?? 0) : [3, 4, 3, 5, 4, 6, 5, 7]), [dl, snap]);
 
   // On large screens every section sits on its matching region of the artwork (positions are % of its height).
   const place = (extra: string) => cn("relative px-5 py-8 lg:px-10", extra.replace(/lg:(top|bottom)-\[[^\]]*\]|lg:top-auto|lg:h-\[15%\]/g, ""));
@@ -550,8 +549,8 @@ export function HomePage() {
 
       <section className={place("lg:top-[38.6%]")}>
         <motion.div {...reveal} className="mx-auto grid max-w-[1500px] gap-5 lg:h-[380px] lg:grid-cols-[0.75fr_1.25fr]">
-          <CityList anchor={anchor} selected={selected} onSelect={setCity} />
-          <RealtimeChart anchor={anchor} slug={selected} />
+          <CityList snap={snap} selected={selected} onSelect={setCity} />
+          <RealtimeChart snap={snap} slug={selected} />
         </motion.div>
       </section>
 
@@ -568,7 +567,7 @@ export function HomePage() {
 
       <section className={place("lg:h-[420px]")}>
         <div className="relative mx-auto h-full max-w-[1500px]">
-          <FloatingWidgets anchor={anchor} />
+          <FloatingWidgets snap={snap} />
         </div>
       </section>
 

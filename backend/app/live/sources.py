@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import csv
 import io
 import math
@@ -298,31 +299,82 @@ def fire_regions(fires: list[dict]) -> list[dict]:
 # ───────────────────────── XKDR archive: history & meta ─────────────────────────
 
 
-async def cpcb_history(client: httpx.AsyncClient, api_key: str, city: City, years: tuple[int, int] = (2022, 2024)) -> dict:
-    """Monthly measured PM2.5 (mean of nearby CPCB stations) for the archive years."""
-    h = {"Authorization": f"Bearer {api_key}"}
+async def _pm25_stations(client: httpx.AsyncClient, h: dict) -> list[dict]:
     st = await client.get(f"{XKDR}/stations", headers=h, timeout=90)
     st.raise_for_status()
-    near = [
-        s
-        for s in st.json()["data"]
-        if "PM2.5" in s.get("parameters", []) and s.get("latitude") and haversine_km(city.lat, city.lon, s["latitude"], s["longitude"]) < 30
-    ]
+    return [s for s in st.json()["data"] if "PM2.5" in s.get("parameters", []) and s.get("latitude")]
+
+
+def _near(city: City, stations: list[dict], km: float = 30, limit: int = 12) -> list[dict]:
+    return [s for s in stations if haversine_km(city.lat, city.lon, s["latitude"], s["longitude"]) < km][:limit]
+
+
+async def cpcb_history(client: httpx.AsyncClient, api_key: str, city: City, years: tuple[int, int] = (2022, 2024)) -> dict:
+    """Measured PM2.5 for one city (mean of nearby CPCB stations): monthly for the archive years + daily for the last year."""
+    h = {"Authorization": f"Bearer {api_key}"}
+    near = _near(city, await _pm25_stations(client, h))
     if not near:
-        return {"city": city.slug, "months": [], "stations": []}
-    r = await client.get(
-        f"{XKDR}/measurements",
-        headers=h,
-        params={"station": [s["station_id"] for s in near][:12], "parameter": "PM2.5", "start": f"{years[0]}-01-01", "end": f"{years[1]}-12-31", "agg": "monthly"},
-        timeout=90,
+        return {"city": city.slug, "months": [], "days": [], "stations": []}
+    ids = [s["station_id"] for s in near]
+
+    async def agg(start: str, end: str, kind: str) -> list[dict]:
+        r = await client.get(
+            f"{XKDR}/measurements",
+            headers=h,
+            params={"station": ids, "parameter": "PM2.5", "start": start, "end": end, "agg": kind},
+            timeout=90,
+        )
+        r.raise_for_status()
+        acc: dict[str, list[float]] = defaultdict(list)
+        for d in r.json().get("data", []):
+            if d.get("mean") is not None:
+                acc[d["period_start"][:10]].append(d["mean"])
+        return [{"date": k, "pm25": sum(v) / len(v), "stations": len(v)} for k, v in sorted(acc.items())]
+
+    monthly, daily = await asyncio.gather(
+        agg(f"{years[0]}-01-01", f"{years[1]}-12-31", "monthly"),
+        agg(f"{years[1]}-01-01", f"{years[1]}-12-31", "daily"),
     )
-    r.raise_for_status()
-    acc: dict[str, list[float]] = defaultdict(list)
-    for d in r.json().get("data", []):
+    return {
+        "city": city.slug,
+        "months": [{"month": m["date"][:7], "pm25": m["pm25"], "stations": m["stations"]} for m in monthly],
+        "days": daily,
+        "stations": [s["station_name"] for s in near][:6],
+    }
+
+
+async def cpcb_history_all(client: httpx.AsyncClient, api_key: str, years: tuple[int, int] = (2022, 2024)) -> dict:
+    """Monthly measured PM2.5 for every city in batched archive queries (stations within 30 km)."""
+    h = {"Authorization": f"Bearer {api_key}"}
+    stations = await _pm25_stations(client, h)
+    by_city = {c.slug: [s["station_id"] for s in _near(c, stations)] for c in CITIES}
+    ids = sorted({i for v in by_city.values() for i in v})
+    sem = asyncio.Semaphore(4)
+
+    async def batch(chunk: list[str]) -> list[dict]:
+        async with sem:
+            r = await client.get(
+                f"{XKDR}/measurements",
+                headers=h,
+                params={"station": chunk, "parameter": "PM2.5", "start": f"{years[0]}-01-01", "end": f"{years[1]}-12-31", "agg": "monthly"},
+                timeout=90,
+            )
+            r.raise_for_status()
+            return r.json().get("data", [])
+
+    rows = [d for part in await asyncio.gather(*(batch(ids[i : i + 40]) for i in range(0, len(ids), 40))) for d in part]
+    per_station: dict[str, dict[str, float]] = defaultdict(dict)
+    for d in rows:
         if d.get("mean") is not None:
-            acc[d["period_start"][:7]].append(d["mean"])
-    months = [{"month": k, "pm25": sum(v) / len(v), "stations": len(v)} for k, v in sorted(acc.items())]
-    return {"city": city.slug, "months": months, "stations": [s["station_name"] for s in near][:6]}
+            per_station[d["station_id"]][d["period_start"][:7]] = d["mean"]
+    out: dict[str, list[dict]] = {}
+    for slug, sids in by_city.items():
+        acc: dict[str, list[float]] = defaultdict(list)
+        for sid in sids:
+            for m, v in per_station.get(sid, {}).items():
+                acc[m].append(v)
+        out[slug] = [{"month": m, "pm25": round(sum(v) / len(v), 2), "stations": len(v)} for m, v in sorted(acc.items())]
+    return {"years": list(years), "stations": len(ids), "cities": out}
 
 
 async def cpcb_meta(client: httpx.AsyncClient, api_key: str) -> dict:
