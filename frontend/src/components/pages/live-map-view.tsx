@@ -14,6 +14,7 @@ import { AqiBadge } from "@/components/ui/badge";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Skeleton, Slider, Switch } from "@/components/ui/primitives";
 import { Segmented } from "@/components/ui/segmented";
+import type { InflowLink } from "@/components/map/wind-flow";
 import { useAppStore } from "@/hooks/use-app-store";
 import type { LiveSnapshot } from "@/hooks/use-live";
 import { AQI_CATEGORIES, categoryForPm, pmToAqi } from "@/lib/aqi";
@@ -43,7 +44,8 @@ function MapBody({ snap }: { snap: LiveSnapshot }) {
   const selected = useAppStore((s) => s.city);
   const setCity = useAppStore((s) => s.setCity);
   const [basemap, setBasemap] = useState<Basemap>("satellite");
-  const [layers, setLayers] = useState({ heat: true, fires: true, wind: true, labels: true, aod: false });
+  const [layers, setLayers] = useState({ heat: true, fires: true, wind: true, links: true, labels: true, aod: false });
+  const [inflow, setInflow] = useState<InflowLink[]>([]);
   const [lead, setLead] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [now] = useState(() => Date.now());
@@ -90,6 +92,8 @@ function MapBody({ snap }: { snap: LiveSnapshot }) {
             wind={layers.wind}
             labels={layers.labels}
             aod={layers.aod}
+            links={layers.wind && layers.links}
+            onLinks={setInflow}
             selected={sel.slug}
             onSelect={setCity}
           />
@@ -104,20 +108,21 @@ function MapBody({ snap }: { snap: LiveSnapshot }) {
               ]}
             />
           </div>
-          <div className="glass absolute right-4 top-4 z-10 w-[236px] rounded-[24px] p-2">
-            <div className="flex items-center gap-2 px-2 py-1.5 text-sm font-semibold text-fg">
-              <Layers className="size-4 text-primary" /> Layers
+          <div className="absolute right-4 top-4 z-10 w-[250px] rounded-[24px] bg-slate-950/60 p-2 text-white shadow-[0_12px_40px_-12px_rgba(0,0,0,0.6),inset_0_0_0_0.75px_rgba(255,255,255,0.22)] backdrop-blur-xl">
+            <div className="flex items-center gap-2 px-2 py-1.5 text-[15px] font-semibold text-white">
+              <Layers className="size-4 text-teal-300" /> Layers
             </div>
             {(
               [
                 ["heat", "PM2.5 surface (CAMS)", "#ef4444"],
                 ["fires", "Fires (NASA FIRMS)", "#f59e0b"],
-                ["wind", "Wind arrows", "#38bdf8"],
+                ["wind", "Wind flow (animated)", "#38bdf8"],
+                ["links", "Who affects selected city", "#2dd4bf"],
                 ["labels", "City labels", "#94a3b8"],
                 ["aod", "Aerosol depth (MODIS)", "#a78bfa"],
               ] as const
             ).map(([key, label, color]) => (
-              <label key={key} className="flex cursor-pointer items-center gap-2.5 rounded-xl px-2 py-1.5 text-xs text-fg-muted hover:bg-surface-sunken">
+              <label key={key} className={cn("flex cursor-pointer items-center gap-2.5 rounded-xl px-2 py-1.5 text-[13px] font-medium text-white/90 hover:bg-white/10", key === "links" && !layers.wind && "opacity-45")}>
                 <span className="size-2 rounded-full" style={{ background: color }} />
                 <span className="flex-1">{label}</span>
                 <Switch checked={layers[key]} onChange={(v) => setLayers((l) => ({ ...l, [key]: v }))} color={color} aria-label={label} />
@@ -167,6 +172,33 @@ function MapBody({ snap }: { snap: LiveSnapshot }) {
                 {sel.cpcb && (
                   <div className="mt-3 rounded-2xl bg-surface-sunken px-3 py-2 text-xs text-fg-muted">
                     CPCB measured, same month ({sel.cpcb.period.slice(0, 4)}): <b className="font-num text-fg">{sel.cpcb.pm25_mean.toFixed(0)} µg/m³</b> · {sel.cpcb.stations} stations
+                  </div>
+                )}
+                {layers.wind && layers.links && (
+                  <div className="mt-3 rounded-2xl bg-surface-sunken p-3">
+                    <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-fg">
+                      <Wind className="size-3.5 text-teal-300" /> Air arriving in {sel.name} from
+                    </div>
+                    {inflow.length ? (
+                      <div className="space-y-1.5">
+                        {inflow.map((l) => (
+                          <button key={l.from.slug} onClick={() => setCity(l.from.slug)} className="grid w-full grid-cols-[1fr_70px_36px] items-center gap-2 text-left text-xs">
+                            <span className="flex min-w-0 items-center gap-1.5">
+                              <span className="size-2 shrink-0 rounded-full" style={{ background: categoryForPm(l.from.pm25 ?? 0).color }} />
+                              <span className="truncate text-fg">{l.from.name}</span>
+                              <span className="font-num shrink-0 text-fg-subtle">{Math.round(l.km)} km</span>
+                            </span>
+                            <span className="h-1.5 overflow-hidden rounded-full bg-white/10">
+                              <span className="block h-full rounded-full bg-teal-300" style={{ width: `${l.share * 100}%` }} />
+                            </span>
+                            <span className="font-num text-right font-semibold text-fg">{Math.round(l.share * 100)}%</span>
+                          </button>
+                        ))}
+                        <div className="pt-1 text-[10.5px] leading-snug text-fg-subtle">Share of upwind pollution load reaching {sel.name}: distance × wind alignment × wind speed × source PM2.5, from live Open-Meteo winds.</div>
+                      </div>
+                    ) : (
+                      <div className="text-xs text-fg-muted">No nearby city is upwind right now — {sel.name}&apos;s air is mostly local.</div>
+                    )}
                   </div>
                 )}
                 <Link href="/forecast" className="mt-3 inline-block text-xs font-semibold text-primary">

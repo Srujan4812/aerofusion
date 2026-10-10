@@ -8,6 +8,7 @@ import Map, { Layer, Marker, NavigationControl, Source, type MapRef } from "reac
 import { categoryForPm } from "@/lib/aqi";
 import { INDIA_OUTLINE } from "@/lib/geo/india";
 import { cn } from "@/lib/utils";
+import { WindFlow, type InflowLink } from "./wind-flow";
 
 // The bundler can't serve MapLibre's module worker, so serve a copy from /public.
 if (typeof window !== "undefined") setWorkerUrl("/maplibre/maplibre-gl-worker.mjs");
@@ -78,6 +79,8 @@ export function RealMap({
   wind = true,
   labels = true,
   aod = false,
+  links = false,
+  onLinks,
   selected,
   onSelect,
   className,
@@ -90,6 +93,9 @@ export function RealMap({
   wind?: boolean;
   labels?: boolean;
   aod?: boolean;
+  /** animated transport arrows into the selected city (needs wind) */
+  links?: boolean;
+  onLinks?: (l: InflowLink[]) => void;
   selected?: string;
   onSelect?: (slug: string) => void;
   className?: string;
@@ -205,6 +211,8 @@ export function RealMap({
           </Source>
         )}
 
+        {wind && <WindFlow cities={cities} selected={selected} showLinks={links} onLinks={onLinks} />}
+
         {cities.map((c) => {
           if (c.pm25 === null) return null;
           const cat = categoryForPm(c.pm25);
@@ -212,15 +220,6 @@ export function RealMap({
           return (
             <Marker key={c.slug} longitude={c.lon} latitude={c.lat} anchor="center" onClick={(e) => (e.originalEvent.stopPropagation(), onSelect?.(c.slug))}>
               <button className="group relative flex items-center" aria-label={c.name}>
-                {wind && c.windDir !== null && c.wind !== null && (
-                  <span className="pointer-events-none absolute left-1.5 top-1/2 size-0" style={{ transform: `rotate(${(c.windDir + 180) % 360}deg)` }}>
-                    <span className="absolute bottom-0 left-[-1px] w-[2px] rounded bg-white/85" style={{ height: 10 + Math.min(c.wind, 8) * 3 }} />
-                    <span
-                      className="absolute left-[-4px] size-0 border-x-[4px] border-b-[6px] border-x-transparent border-b-white"
-                      style={{ bottom: 8 + Math.min(c.wind, 8) * 3 }}
-                    />
-                  </span>
-                )}
                 <span
                   className={cn("relative block rounded-full ring-2 ring-white transition-transform group-hover:scale-125", isSel ? "size-4" : "size-3")}
                   style={{ background: cat.color, boxShadow: `0 0 12px ${cat.color}` }}
