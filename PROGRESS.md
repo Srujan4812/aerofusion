@@ -6,7 +6,7 @@
 Overall            ███████████████░░░░░  75%
 Frontend UI        ████████████████████ 100%  12 pages, Liquid Glass, light/dark, photo backgrounds
 Homepage           ████████████████████ 100%  stitched artwork bg, glass sections
-Backend (FastAPI)  ███████░░░░░░░░░░░░░  35%  schemas + config + bit-exact simulator port
+Backend (FastAPI)  █████████████░░░░░░░  65%  LIVE ingestion: 6 sources → fusion → (T,33,20) tensor
 ML package         ░░░░░░░░░░░░░░░░░░░░   0%
 Docs / README      ████░░░░░░░░░░░░░░░░  20%
 ```
@@ -20,6 +20,13 @@ Docs / README      ████░░░░░░░░░░░░░░░░ 
 - [x] Fonts: Christmas Mallow (large headers, `font-hero`), Papernotes (inside cards/glass); numbers via `font-num`
 - [x] Integrity: "Demo data" labels everywhere, Model Lab metrics flagged *illustrative*, CAMS shown only as benchmark
 - [x] Backend: `backend/app/schemas.py`, `config.py`, `sim/` (port of TS simulator)
+
+## Live data (2026-10-10)
+- `backend/app/live/` — CAMS air quality + Open-Meteo weather (no key), NASA FIRMS 24 h CSV (no key), NASA GIBS WMS imagery (no key), XKDR CPCB archive baseline (key in `backend/.env`, never committed), calendar.
+- Auto-refresh every 10 min (`AEROFUSION_REFRESH_SECONDS`), `POST /api/live/refresh` on demand; tensor saved to `backend/data/processed/live_tensor.npz`.
+- Frontend `/pipeline` → **Live Data Fusion** dashboard (countdown ring, refresh button, source health, NASA image cards, tensor heatmap, fused city table).
+- Note: XKDR is an archive (PM2.5 to Mar 2026, most stations to Dec 2024) → used as same-month historical baseline; live PM2.5 = CAMS (modelled, labelled).
+- Run API: `C:/Users/Puneeth_M/.venvs/aerofusion/Scripts/python.exe -m uvicorn app.main:app --app-dir backend --port 8000`
 
 ## Next (in order)
 1. **Backend** — `backend/app/providers/{base,demo,model}.py`, `main.py` routes (`/health /stations /snapshot /forecast/{city} /explain/{city} /graph /hotspots /whatif /metrics`), `requirements.txt`, pytest tests, Dockerfile.

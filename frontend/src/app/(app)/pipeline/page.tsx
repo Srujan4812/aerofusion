@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { PipelineView } from "@/components/pages/pipeline-view";
+import { LiveDataView } from "@/components/pages/live-data-view";
 
-export const metadata: Metadata = { title: "Data Pipeline" };
+export const metadata: Metadata = { title: "Live Data Fusion" };
 
 export default function PipelinePage() {
-  return <PipelineView />;
+  return <LiveDataView />;
 }

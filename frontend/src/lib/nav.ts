@@ -40,7 +40,7 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     label: "Data",
     items: [
       { href: "/data-sources", label: "Data Sources", icon: Database, description: "CPCB, ERA5/IMD, FIRMS & more" },
-      { href: "/pipeline", label: "Data Pipeline", icon: Workflow, description: "Ingestion → tensor, quality metrics" },
+      { href: "/pipeline", label: "Live Data", icon: Workflow, description: "Live NASA, CAMS, weather & CPCB fusion" },
       { href: "/reports", label: "Reports", icon: FileChartColumn, description: "Trends, rankings & downloads" },
     ],
   },
