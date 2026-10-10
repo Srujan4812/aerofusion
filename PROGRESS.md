@@ -51,3 +51,28 @@ cd frontend && npm install && npm run dev   # http://localhost:3000
 - All dashboards run on real data: Overview, Forecast (CAMS + Open-Meteo), Live Map, Explainability (live Spearman drivers, daily cycle, z-scores), Model Lab (CPCB archive 196M rows, tensor coverage, live wind graph, honest training status), Reports (CPCB 2022–2024 monthly/daily via `/api/history`), Simulator (live CAMS baseline), Home, topbar alerts and Live/Offline pill.
 - Removed: architecture diagram, illustrative metrics, simulated backtests, demo-mode labels, old data-sources and pipeline views.
 - Next: historical backfill → train MW-AeroFusion-Net → replace CAMS lines with model forecasts.
+
+
+## Checkpoint — 2026-10-10 (`checkpoint-2026-10-10`)
+`Overall  [################----]  80%`
+`UI + live data  [####################] 100%`
+`Model training  [##------------------]  10%`
+
+Done since last checkpoint:
+- **Explainability AI** (Groq, `openai/gpt-oss-120b` insights / `gpt-oss-20b` chat): 6 insight cards with reasoning, regenerated per live refresh, chat grounded in the live snapshot (`/api/ai/insights`, `/api/ai/chat`). Key in `backend/.env` as `GROQ_API_KEY` (never committed). Free tier = 8k tokens/min.
+- **Refresh everything** button on Explainability (live sources + charts + AI).
+- AI cards restyled to Liquid Glass (no coloured borders, larger/brighter text).
+- **Sounds:** water-drop click on all buttons/links; looping sunrise ambience only on `/`; mute toggle (persisted).
+- **Maps fixed:** MapLibre worker served from `frontend/public/maplibre/` (tiles never rendered before); NASA GIBS satellite + Esri labels on Overview/Simulator; Esri dark/light (CARTO now needs a key).
+- **Live Map:** animated wind-flow particles; animated transport arrows into the selected city with share %; readable layers panel.
+
+Next steps:
+1. Historical backfill (CAMS reanalysis + ERA5 + FIRMS archive aligned to CPCB 2019–2024).
+2. Train MW-AeroFusion-Net; evaluate vs CAMS & persistence on held-out 2024.
+3. Serve model forecasts and replace CAMS lines; add SHAP/attention to Explainability.
+
+Known issues:
+- If `maplibre-gl` is upgraded, re-copy `node_modules/maplibre-gl/dist/maplibre-gl-worker.mjs` to `frontend/public/maplibre/`.
+- Backend has no `--reload`; restart the `api` server after backend edits.
+- Browsers block autoplay audio until the first click/keypress.
+- Font licences (Christmas Mallow / Papernotes demo fonts) must be checked before public release.
