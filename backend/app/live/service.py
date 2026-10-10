@@ -51,6 +51,43 @@ SOURCE_META = {
 HISTORY_MAX = 72  # time steps kept in the rolling tensor
 
 
+def _window(times: list[str], vals: list, now: datetime, h0: int, h1: int) -> list:
+    """Values whose hourly UTC timestamp lies within [now+h0, now+h1] hours."""
+    out = []
+    for t, v in zip(times, vals):
+        try:
+            dt = datetime.fromisoformat(t).replace(tzinfo=timezone.utc)
+        except ValueError:
+            continue
+        d = (dt - now).total_seconds() / 3600
+        if h0 <= d <= h1:
+            out.append(v)
+    return out
+
+
+def _series(a: dict, w: dict) -> dict:
+    """Hourly CAMS + weather aligned on the CAMS timestamps (UTC)."""
+    times = a.get("hourly_time", [])
+    wh = w.get("hourly", {}) or {}
+    widx = {t: i for i, t in enumerate(wh.get("time", []))}
+
+    def wcol(k):
+        col = wh.get(k, [])
+        return [col[widx[t]] if t in widx and widx[t] < len(col) else None for t in times]
+
+    return {
+        "time": [t + "Z" for t in times],
+        "pm25": a.get("hourly_pm2_5", []),
+        "pm10": a.get("hourly_pm10", []),
+        "aod": a.get("hourly_aod", []),
+        "temp": wcol("temperature_2m"),
+        "rh": wcol("relative_humidity_2m"),
+        "wind": wcol("wind_speed_10m"),
+        "wind_dir": wcol("wind_direction_10m"),
+        "pblh": wcol("boundary_layer_height"),
+    }
+
+
 class LiveService:
     def __init__(self, interval_s: int = 600, data_dir: Path | None = None):
         self.interval_s = interval_s
@@ -166,8 +203,8 @@ class LiveService:
                     **{k: (None if vals.get(k) is None else round(float(vals[k]), 3)) for k in FEATURE_KEYS},
                     "us_aqi": a.get("us_aqi"),
                     "wind_dir": wd,
-                    "pm25_24h": a.get("hourly_pm2_5", []),
-                    "pm25_24h_time": a.get("hourly_time", []),
+                    "pm25_24h": _window(a.get("hourly_time", []), a.get("hourly_pm2_5", []), now, -24, 0),
+                    "series": _series(a, w),
                     "cpcb": base.get(c.slug),
                     "observed_at": a.get("time"),
                 }

@@ -64,7 +64,7 @@ async def fetch_air_quality(client: httpx.AsyncClient) -> SourceResult:
     async def run():
         r = await client.get(
             "https://air-quality-api.open-meteo.com/v1/air-quality",
-            params={**_latlon_params(CITIES), "current": ",".join(AQ_VARS), "hourly": "pm2_5", "past_hours": 24, "forecast_hours": 24},
+            params={**_latlon_params(CITIES), "current": ",".join(AQ_VARS), "hourly": "pm2_5,pm10,aerosol_optical_depth", "past_days": 2, "forecast_days": 4},
         )
         r.raise_for_status()
         rows = r.json()
@@ -77,6 +77,8 @@ async def fetch_air_quality(client: httpx.AsyncClient) -> SourceResult:
                 "time": cur.get("time"),
                 "hourly_time": row.get("hourly", {}).get("time", []),
                 "hourly_pm2_5": row.get("hourly", {}).get("pm2_5", []),
+                "hourly_pm10": row.get("hourly", {}).get("pm10", []),
+                "hourly_aod": row.get("hourly", {}).get("aerosol_optical_depth", []),
             }
         return out, len(out)
 
@@ -92,12 +94,22 @@ async def fetch_weather(client: httpx.AsyncClient) -> SourceResult:
     async def run():
         r = await client.get(
             "https://api.open-meteo.com/v1/forecast",
-            params={**_latlon_params(CITIES), "current": ",".join(WX_VARS), "wind_speed_unit": "ms"},
+            params={
+                **_latlon_params(CITIES),
+                "current": ",".join(WX_VARS),
+                "hourly": "temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m,boundary_layer_height",
+                "wind_speed_unit": "ms",
+                "past_days": 2,
+                "forecast_days": 4,
+            },
         )
         r.raise_for_status()
         rows = r.json()
         rows = rows if isinstance(rows, list) else [rows]
-        out = {c.slug: {**{k: row.get("current", {}).get(k) for k in WX_VARS}, "time": row.get("current", {}).get("time")} for c, row in zip(CITIES, rows)}
+        out = {
+            c.slug: {**{k: row.get("current", {}).get(k) for k in WX_VARS}, "time": row.get("current", {}).get("time"), "hourly": row.get("hourly", {})}
+            for c, row in zip(CITIES, rows)
+        }
         return out, len(out)
 
     return await _timed("weather", run())
@@ -281,3 +293,40 @@ def fire_regions(fires: list[dict]) -> list[dict]:
         counts[c.state] += 1
         frp[c.state] += f["frp"]
     return [{"region": k, "count": v, "frp": round(frp[k], 1)} for k, v in counts.most_common(8)]
+
+
+# ───────────────────────── XKDR archive: history & meta ─────────────────────────
+
+
+async def cpcb_history(client: httpx.AsyncClient, api_key: str, city: City, years: tuple[int, int] = (2022, 2024)) -> dict:
+    """Monthly measured PM2.5 (mean of nearby CPCB stations) for the archive years."""
+    h = {"Authorization": f"Bearer {api_key}"}
+    st = await client.get(f"{XKDR}/stations", headers=h, timeout=90)
+    st.raise_for_status()
+    near = [
+        s
+        for s in st.json()["data"]
+        if "PM2.5" in s.get("parameters", []) and s.get("latitude") and haversine_km(city.lat, city.lon, s["latitude"], s["longitude"]) < 30
+    ]
+    if not near:
+        return {"city": city.slug, "months": [], "stations": []}
+    r = await client.get(
+        f"{XKDR}/measurements",
+        headers=h,
+        params={"station": [s["station_id"] for s in near][:12], "parameter": "PM2.5", "start": f"{years[0]}-01-01", "end": f"{years[1]}-12-31", "agg": "monthly"},
+        timeout=90,
+    )
+    r.raise_for_status()
+    acc: dict[str, list[float]] = defaultdict(list)
+    for d in r.json().get("data", []):
+        if d.get("mean") is not None:
+            acc[d["period_start"][:7]].append(d["mean"])
+    months = [{"month": k, "pm25": sum(v) / len(v), "stations": len(v)} for k, v in sorted(acc.items())]
+    return {"city": city.slug, "months": months, "stations": [s["station_name"] for s in near][:6]}
+
+
+async def cpcb_meta(client: httpx.AsyncClient, api_key: str) -> dict:
+    h = {"Authorization": f"Bearer {api_key}"}
+    meta = (await client.get(f"{XKDR}/meta", headers=h, timeout=60)).json()
+    params = (await client.get(f"{XKDR}/parameters", headers=h, timeout=60)).json().get("data", [])
+    return {"meta": meta, "parameters": params}

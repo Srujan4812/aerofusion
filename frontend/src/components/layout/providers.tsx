@@ -7,6 +7,7 @@ import { Tooltip } from "radix-ui";
 import { useEffect, type ReactNode } from "react";
 import { Toaster } from "sonner";
 import { useAppStore } from "@/hooks/use-app-store";
+import { LiveProvider } from "@/hooks/use-live";
 
 // `?static=1` renders every animation in its final state — handy for report screenshots.
 if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("static") === "1") {
@@ -46,7 +47,7 @@ export function Providers({ children }: { children: ReactNode }) {
         <Tooltip.Provider delayDuration={150}>
           <StoreHydration />
           <SmoothScroll />
-          {children}
+          <LiveProvider>{children}</LiveProvider>
           <Toaster
             position="bottom-right"
             toastOptions={{

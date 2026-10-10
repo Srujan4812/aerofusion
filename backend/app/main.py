@@ -15,7 +15,13 @@ from fastapi.middleware.cors import CORSMiddleware
 
 load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
+import time  # noqa: E402
+
+import httpx  # noqa: E402
+
+from .live import sources as S  # noqa: E402
 from .live.service import LiveService  # noqa: E402
+from .sim.core import CITY_BY_SLUG  # noqa: E402
 
 live = LiveService(interval_s=int(os.getenv("AEROFUSION_REFRESH_SECONDS", "600")))
 
@@ -65,3 +71,66 @@ async def live_refresh():
         raise HTTPException(409, "A refresh is already running")
     snap = await live.refresh()
     return {**snap, "next_refresh_in": live.next_refresh_in()}
+
+
+_cache: dict[str, tuple[float, dict]] = {}
+
+
+async def _cached(key: str, ttl: float, fn):
+    hit = _cache.get(key)
+    if hit and time.time() - hit[0] < ttl:
+        return hit[1]
+    val = await fn()
+    _cache[key] = (time.time(), val)
+    return val
+
+
+@app.get("/api/history/{city}")
+async def history(city: str):
+    """Measured monthly PM2.5 from the CPCB archive (XKDR) for 2022–2024."""
+    c = CITY_BY_SLUG.get(city)
+    if not c:
+        raise HTTPException(404, "unknown city")
+    key = os.getenv("XKDR_API_KEY")
+    if not key:
+        raise HTTPException(503, "XKDR_API_KEY not configured")
+
+    async def run():
+        async with httpx.AsyncClient(timeout=90) as client:
+            return await S.cpcb_history(client, key, c)
+
+    return await _cached(f"hist:{city}", 24 * 3600, run)
+
+
+@app.get("/api/archive")
+async def archive():
+    """Size and coverage of the measured CPCB archive available for training."""
+    key = os.getenv("XKDR_API_KEY")
+    if not key:
+        raise HTTPException(503, "XKDR_API_KEY not configured")
+
+    async def run():
+        async with httpx.AsyncClient(timeout=90) as client:
+            return await S.cpcb_meta(client, key)
+
+    return await _cached("archive", 12 * 3600, run)
+
+
+@app.get("/api/tensor")
+def tensor_info():
+    """Rolling live tensor saved for the model."""
+    import numpy as np
+
+    f = live.data_dir / "live_tensor.npz"
+    if not f.exists():
+        return {"exists": False}
+    d = np.load(f)
+    X = d["X"]
+    return {
+        "exists": True,
+        "shape": list(X.shape),
+        "timestamps": [str(t) for t in d["timestamps"]],
+        "features": [str(x) for x in d["features"]],
+        "coverage_per_feature": [round(float(v), 4) for v in np.isfinite(X).mean(axis=(0, 1))],
+        "size_kb": round(f.stat().st_size / 1024, 1),
+    }
