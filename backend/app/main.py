@@ -19,6 +19,7 @@ import time  # noqa: E402
 
 import httpx  # noqa: E402
 
+from .live import ai as AI  # noqa: E402
 from .live import sources as S  # noqa: E402
 from .live.service import LiveService  # noqa: E402
 from .sim.core import CITY_BY_SLUG  # noqa: E402
@@ -148,3 +149,36 @@ def tensor_info():
         "coverage_per_feature": [round(float(v), 4) for v in np.isfinite(X).mean(axis=(0, 1))],
         "size_kb": round(f.stat().st_size / 1024, 1),
     }
+
+
+_ai_cache: dict[str, dict] = {}
+
+
+@app.get("/api/ai/insights")
+async def ai_insights():
+    """LLM-written insight cards with reasoning, regenerated once per live refresh."""
+    if live.snapshot is None:
+        await live.refresh()
+    snap = live.snapshot
+    hit = _ai_cache.get(snap["updated_at"])
+    if hit:
+        return hit
+    try:
+        data = await AI.insights(snap)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(502, str(e)) from e
+    _ai_cache.clear()
+    _ai_cache[snap["updated_at"]] = data
+    return data
+
+
+@app.post("/api/ai/chat")
+async def ai_chat(body: dict):
+    """Chat grounded in the current live snapshot. Body: {messages:[{role,content}], city?}."""
+    if live.snapshot is None:
+        await live.refresh()
+    try:
+        answer = await AI.chat(live.snapshot, body.get("messages", []), body.get("city"))
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(502, str(e)) from e
+    return {"answer": answer, "updated_at": live.snapshot["updated_at"]}

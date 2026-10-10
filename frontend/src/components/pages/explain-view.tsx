@@ -1,10 +1,11 @@
 "use client";
 
-import { Activity, Clock, Lightbulb, Network, ScatterChart as ScatterIcon, Sigma } from "lucide-react";
+import { Activity, Clock, Network, ScatterChart as ScatterIcon, Sigma } from "lucide-react";
 import { motion } from "motion/react";
 import { useMemo, useState } from "react";
 import { Bar, CartesianGrid, Cell, ComposedChart, Line, ResponsiveContainer, Scatter, ScatterChart, Tooltip, XAxis, YAxis, ZAxis } from "recharts";
 import { ChartTip, Legend } from "@/components/charts/chart-tooltip";
+import { AiChat, AiInsights } from "@/components/live/ai-panels";
 import { LiveGate, SourceNote } from "@/components/live/live-gate";
 import { PageHero } from "@/components/layout/page-hero";
 import { AqiBadge, Badge } from "@/components/ui/badge";
@@ -112,26 +113,6 @@ function Body({ snap }: { snap: LiveSnapshot }) {
   const ratio = night && noon ? night / noon : null;
   const topCross = cross[0];
   const topTemp = temporal[0];
-  const unusual = profile[0];
-
-  const insights = [
-    topCross && {
-      title: `Across India, PM2.5 tracks ${topCross.label.toLowerCase()} most`,
-      body: `Rank correlation ρ = ${topCross.rho.toFixed(2)} across ${cities.length} cities right now (${topCross.source}). ${topCross.rho > 0 ? "Cities with more of it are dirtier." : "Cities with more of it are cleaner."}`,
-    },
-    topTemp && {
-      title: `In ${c.name}, PM2.5 ${topTemp.rho < 0 ? "rises when" : "rises with"} ${topTemp.label.toLowerCase()} ${topTemp.rho < 0 ? "drops" : ""}`.trim(),
-      body: `Over the ${pts.length} hourly steps in the live window, ρ = ${topTemp.rho.toFixed(2)}. ${topTemp.key === "pblh" || topTemp.key === "vent" ? "A shallow boundary layer traps emissions near the ground." : ""}`,
-    },
-    ratio && {
-      title: ratio > 1.2 ? `Nights are ${ratio.toFixed(1)}× dirtier than afternoons` : "Little day–night difference",
-      body: `Average PM2.5 is ${Math.round(night!)} µg/m³ between 10 PM and 5 AM vs ${Math.round(noon!)} µg/m³ between noon and 4 PM (IST), following the daily rise and collapse of the mixing layer.`,
-    },
-    unusual && {
-      title: `Most unusual in ${c.name} today: ${unusual.label.toLowerCase()}`,
-      body: `${unusual.z > 0 ? "Higher" : "Lower"} than the 33-city average by ${Math.abs(unusual.z).toFixed(1)} standard deviations (${unusual.v !== null ? `${Math.round(unusual.v * 100) / 100} ${unusual.unit}` : ""}).`,
-    },
-  ].filter(Boolean) as { title: string; body: string }[];
 
   return (
     <>
@@ -150,22 +131,18 @@ function Body({ snap }: { snap: LiveSnapshot }) {
         </StaggerItem>
       </Stagger>
 
+      <div className="mt-4">
+        <AiInsights snap={snap} />
+      </div>
+
       <div className="mt-4 grid gap-4 xl:grid-cols-12">
         <Card className="xl:col-span-7">
           <CardHeader title="Drivers across India, right now" subtitle="Spearman rank correlation between each live feature and PM2.5 across the 33 cities" icon={<Network className="size-4" />} />
           <RhoBars items={cross.map((f) => ({ key: f.key, label: f.label, sub: f.source, rho: f.rho }))} />
         </Card>
-        <Card className="xl:col-span-5">
-          <CardHeader title="Key insights" subtitle="Written from the numbers on this page" icon={<Lightbulb className="size-4" />} />
-          <div className="space-y-2.5">
-            {insights.map((ins, i) => (
-              <motion.div key={ins.title} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.08 * i }} className="rounded-2xl bg-surface-sunken p-3">
-                <div className="text-[13px] font-semibold leading-snug text-fg">{ins.title}</div>
-                <div className="mt-0.5 text-xs leading-relaxed text-fg-muted">{ins.body}</div>
-              </motion.div>
-            ))}
-          </div>
-        </Card>
+        <div className="xl:col-span-5">
+          <AiChat city={c.name} />
+        </div>
       </div>
 
       <div className="mt-4 grid gap-4 xl:grid-cols-12">
@@ -194,7 +171,7 @@ function Body({ snap }: { snap: LiveSnapshot }) {
       </div>
 
       <SourceNote>
-        Correlation is not causation: these are associations on today&apos;s live data (CAMS, Open-Meteo, NASA FIRMS, CPCB/XKDR), shown so the drivers are transparent. Model attributions (SHAP, attention and wavelet
+        AI cards and chat are written by an LLM (Groq) from the live numbers below and can make mistakes; check against the charts. Correlation is not causation: these are associations on today&apos;s live data (CAMS, Open-Meteo, NASA FIRMS, CPCB/XKDR), shown so the drivers are transparent. Model attributions (SHAP, attention and wavelet
         bands) will be added here once MW-AeroFusion-Net is trained on the archived data. <Badge tone="warn">model training pending</Badge>
       </SourceNote>
     </>
