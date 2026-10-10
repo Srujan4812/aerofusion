@@ -88,7 +88,7 @@ export function AiInsights({ snap, nonce = 0 }: { snap: LiveSnapshot; nonce?: nu
         </div>
       ) : (
         <>
-          <div className="mb-4 flex items-start gap-2.5 rounded-2xl bg-primary-soft p-3.5 text-[14px] font-medium leading-relaxed text-fg">
+          <div className="ai-card mb-4 flex items-start gap-2.5 rounded-2xl bg-black/30 p-4 text-[16px] font-medium leading-relaxed text-white ring-1 ring-white/10">
             <Sparkles className="mt-0.5 size-4 shrink-0 text-primary" />
             {d.headline}
           </div>
@@ -107,28 +107,28 @@ function InsightCard({ ins, i }: { ins: Insight; i: number }) {
   const [open, setOpen] = useState(false);
   const color = TONE[ins.tone] ?? TONE.info;
   return (
-    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }} className="relative overflow-hidden rounded-2xl bg-surface-sunken p-4">
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }} className="ai-card relative overflow-hidden rounded-2xl bg-black/30 p-5 ring-1 ring-white/10 backdrop-blur-[2px]">
       <span className="absolute inset-y-0 left-0 w-1" style={{ background: color }} />
       <div className="flex items-start justify-between gap-2">
-        <div className="text-[14px] font-semibold leading-snug text-fg">{ins.title}</div>
+        <div className="text-[17px] font-semibold leading-snug text-white">{ins.title}</div>
         {ins.confidence && <Badge className="shrink-0">{ins.confidence}</Badge>}
       </div>
-      <p className="mt-1.5 text-[13px] leading-relaxed text-fg-muted">{ins.finding}</p>
+      <p className="mt-2 text-[15px] leading-relaxed text-white/90">{ins.finding}</p>
       {!!ins.cities?.length && (
         <div className="mt-2 flex flex-wrap gap-1">
           {ins.cities.slice(0, 5).map((c) => (
-            <span key={c} className="rounded-full px-2 py-0.5 text-[10.5px] font-medium text-fg" style={{ background: `color-mix(in oklab, ${color} 22%, transparent)` }}>
+            <span key={c} className="rounded-full px-2.5 py-0.5 text-[12px] font-medium text-white" style={{ background: `color-mix(in oklab, ${color} 22%, transparent)` }}>
               {c}
             </span>
           ))}
         </div>
       )}
-      <button onClick={() => setOpen((o) => !o)} className="mt-2.5 inline-flex items-center gap-1 text-xs font-semibold text-primary">
+      <button onClick={() => setOpen((o) => !o)} className="mt-3 inline-flex items-center gap-1 text-[13px] font-semibold text-teal-200">
         Reasoning <ChevronDown className={cn("size-3.5 transition-transform", open && "rotate-180")} />
       </button>
       <AnimatePresence initial={false}>
         {open && (
-          <motion.p initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden text-xs leading-relaxed text-fg-muted">
+          <motion.p initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden text-[14px] leading-relaxed text-white/85">
             <span className="mt-1.5 block border-l-2 pl-2.5" style={{ borderColor: color }}>
               {ins.reasoning}
             </span>

@@ -581,3 +581,12 @@ html.lenis body {
 .glass-hero .font-hero {
   font-family: var(--font-gasdrifo), var(--font-george), sans-serif;
 }
+
+/* AI insight cards: crisper text over the photo background */
+.ai-card {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+  letter-spacing: 0.01em;
+}
