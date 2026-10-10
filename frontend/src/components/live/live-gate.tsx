@@ -17,12 +17,12 @@ export function LiveGate({ children, skeleton = "h-[480px]" }: { children: (snap
         <div className="flex items-start gap-3">
           <AlertTriangle className="mt-0.5 size-5 shrink-0 text-amber-300" />
           <div className="text-sm text-fg">
-            <b>Live backend offline.</b> All dashboards use real data from the AeroFusion API. Start it and this page connects automatically:
-            <pre className="mt-2 overflow-x-auto rounded-xl bg-black/40 p-3 font-mono text-xs text-emerald-200">
-              C:/Users/Puneeth_M/.venvs/aerofusion/Scripts/python.exe -m uvicorn app.main:app --app-dir backend --port 8000
-            </pre>
+            <b>Connecting to the live data server…</b> The free server sleeps when nobody is using it and takes about a minute to wake up. This page connects automatically.
+            {API_URL.includes("localhost") && (
+              <pre className="mt-2 overflow-x-auto rounded-xl bg-black/40 p-3 font-mono text-xs text-emerald-200">python -m uvicorn app.main:app --app-dir backend --port 8000</pre>
+            )}
             <div className="mt-2 flex items-center gap-3 text-xs text-fg-muted">
-              Looking for {API_URL} · {error}
+              {API_URL} · {error}
               <button onClick={reload} className="inline-flex items-center gap-1 rounded-full bg-surface-sunken px-3 py-1 font-semibold text-fg">
                 <RefreshCw className="size-3" /> Retry
               </button>

@@ -41,10 +41,42 @@ async def lifespan(_: FastAPI):
 app = FastAPI(title="AeroFusion API", version="0.2.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[o.strip() for o in os.getenv("AEROFUSION_CORS", "http://localhost:3000,http://127.0.0.1:3000").split(",")],
+    allow_origins=[o.strip() for o in os.getenv("AEROFUSION_CORS", "http://localhost:3000,http://127.0.0.1:3000").split(",") if o.strip()],
+    # e.g. https://.*\.vercel\.app for Vercel production + preview URLs
+    allow_origin_regex=os.getenv("AEROFUSION_CORS_REGEX") or None,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ---------- per-IP rate limits on endpoints that cost money / upstream quota ----------
+_LIMITS = [  # (path prefix, method, max requests, window seconds)
+    ("/api/ai/chat", "POST", int(os.getenv("RL_CHAT_PER_MIN", "6")), 60),
+    ("/api/ai/chat", "POST", int(os.getenv("RL_CHAT_PER_DAY", "80")), 86400),
+    ("/api/live/refresh", "POST", 2, 60),
+    ("/api/ai/insights?force", "GET", 3, 300),
+]
+_hits: dict[tuple[str, str, int], list[float]] = {}
+
+
+@app.middleware("http")
+async def rate_limit(request, call_next):
+    path = request.url.path + ("?force" if request.query_params.get("force") in ("1", "true") else "")
+    ip = (request.headers.get("x-forwarded-for") or (request.client.host if request.client else "?")).split(",")[0].strip()
+    now = time.time()
+    for prefix, method, limit, window in _LIMITS:
+        if request.method == method and path.startswith(prefix):
+            key = (ip, prefix, window)
+            q = [t for t in _hits.get(key, []) if now - t < window]
+            if len(q) >= limit:
+                from fastapi.responses import JSONResponse
+
+                return JSONResponse({"detail": f"Rate limit: max {limit} requests per {window // 60 or 1} min. Try again shortly."}, status_code=429, headers={"Retry-After": str(int(window - (now - q[0])) + 1)})
+            q.append(now)
+            _hits[key] = q
+    if len(_hits) > 20000:
+        _hits.clear()
+    return await call_next(request)
 
 
 @app.get("/health")

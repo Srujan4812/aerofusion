@@ -301,7 +301,7 @@ export function AiChat({
           provider,
         }),
       });
-      if (!r.ok || !r.body) throw new Error(`HTTP ${r.status}`);
+      if (!r.ok || !r.body) throw new Error((await r.json().catch(() => ({}))).detail ?? `HTTP ${r.status}`);
       const reader = r.body.getReader();
       const dec = new TextDecoder();
       let raw = "";
@@ -326,7 +326,7 @@ export function AiChat({
           { role: "assistant", content: "⚠️ Empty answer from the model." },
         ]);
     } catch (e) {
-      setMsgs([...next, { role: "assistant", content: `⚠️ ${String(e)}` }]);
+      setMsgs([...next, { role: "assistant", content: `⚠️ ${e instanceof Error ? e.message : String(e)}` }]);
     } finally {
       setBusy(false);
     }
