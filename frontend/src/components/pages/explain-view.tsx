@@ -5,7 +5,7 @@ import { motion } from "motion/react";
 import { useMemo, useState } from "react";
 import { Bar, CartesianGrid, Cell, ComposedChart, Line, ResponsiveContainer, Scatter, ScatterChart, Tooltip, XAxis, YAxis, ZAxis } from "recharts";
 import { ChartTip, Legend } from "@/components/charts/chart-tooltip";
-import { AiChat, AiInsights } from "@/components/live/ai-panels";
+import { AiChat, AiInsights, ModelPicker } from "@/components/live/ai-panels";
 import { LiveGate, SourceNote } from "@/components/live/live-gate";
 import { PageHero } from "@/components/layout/page-hero";
 import { AqiBadge, Badge } from "@/components/ui/badge";
@@ -50,6 +50,7 @@ const TEMPORAL: { key: string; label: string; get: (p: SeriesPoint) => number | 
 export function ExplainView() {
   const { snap, refresh, refreshing } = useLive();
   const [nonce, setNonce] = useState(0);
+  const [aiModel, setAiModel] = useState("auto");
   const [busy, setBusy] = useState(false);
   const refreshAll = async () => {
     setBusy(true);
@@ -73,6 +74,7 @@ export function ExplainView() {
       >
         <div className="flex flex-wrap items-center gap-3">
           <CitySelect size="lg" />
+          <ModelPicker value={aiModel} onChange={setAiModel} />
           <button
             onClick={refreshAll}
             disabled={spinning}
@@ -88,12 +90,12 @@ export function ExplainView() {
           )}
         </div>
       </PageHero>
-      <LiveGate>{(s) => <Body snap={s} nonce={nonce} />}</LiveGate>
+      <LiveGate>{(s) => <Body snap={s} nonce={nonce} aiModel={aiModel} />}</LiveGate>
     </div>
   );
 }
 
-function Body({ snap, nonce }: { snap: LiveSnapshot; nonce: number }) {
+function Body({ snap, nonce, aiModel }: { snap: LiveSnapshot; nonce: number; aiModel: string }) {
   const slug = useAppStore((s) => s.city);
   const setCity = useAppStore((s) => s.setCity);
   const [nowMs] = useState(() => Date.now());
@@ -160,7 +162,7 @@ function Body({ snap, nonce }: { snap: LiveSnapshot; nonce: number }) {
       </Stagger>
 
       <div className="mt-4">
-        <AiInsights snap={snap} nonce={nonce} />
+        <AiInsights key={aiModel} snap={snap} nonce={nonce} provider={aiModel} />
       </div>
 
       <div className="mt-4 grid gap-4 xl:grid-cols-12">
@@ -169,7 +171,7 @@ function Body({ snap, nonce }: { snap: LiveSnapshot; nonce: number }) {
           <RhoBars items={cross.map((f) => ({ key: f.key, label: f.label, sub: f.source, rho: f.rho }))} />
         </Card>
         <div className="xl:col-span-5">
-          <AiChat city={c.name} />
+          <AiChat city={c.name} provider={aiModel} />
         </div>
       </div>
 

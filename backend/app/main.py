@@ -158,7 +158,8 @@ def tensor_info():
 class _AiState:
     """Insights are generated in the background (slow on CPU-only Ollama) and served from cache."""
 
-    def __init__(self):
+    def __init__(self, choice: str = "auto"):
+        self.choice = choice
         self.data: dict | None = None  # last good insights
         self.generating = False
         self.error: str | None = None
@@ -172,7 +173,7 @@ class _AiState:
 
         async def run():
             try:
-                self.data = await AI.insights(snap)
+                self.data = await AI.insights(snap, AI.resolve_chain(self.choice))
             except Exception as e:  # noqa: BLE001
                 self.error = str(e)
                 print(f"[ai] insights failed: {e}")
@@ -182,7 +183,14 @@ class _AiState:
         self.task = asyncio.create_task(run())
 
 
-ai_state = _AiState()
+ai_states: dict[str, _AiState] = {"auto": _AiState("auto")}
+ai_state = ai_states["auto"]
+
+
+def _state_for(choice: str) -> _AiState:
+    if choice not in ai_states:
+        ai_states[choice] = _AiState(choice)
+    return ai_states[choice]
 
 
 async def _ai_watcher():
@@ -198,16 +206,21 @@ async def _ai_watcher():
 
 @app.get("/api/ai/provider")
 def ai_provider():
-    """Configured LLM backend (no secrets)."""
-    return AI.provider_info()
+    """Configured LLM chain and selectable models (no secrets)."""
+    return {**AI.provider_info(), "options": AI.options()}
 
 
 @app.get("/api/ai/insights")
-async def ai_insights(force: bool = False):
+async def ai_insights(force: bool = False, provider: str = "auto"):
     """Latest AI insight cards. Never blocks on the LLM: returns the cached set plus generation status."""
+    try:
+        AI.resolve_chain(provider)
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
     if live.snapshot is None:
         await live.refresh()
     snap = live.snapshot
+    ai_state = _state_for(provider)
     fresh = ai_state.data is not None and ai_state.data.get("updated_at") == snap["updated_at"]
     if force or (not fresh and not ai_state.generating):
         ai_state.kick(snap)
@@ -225,7 +238,11 @@ async def ai_chat_stream(body: dict):
     """Streamed chat answer (plain text chunks) grounded in the current live snapshot."""
     if live.snapshot is None:
         await live.refresh()
-    return StreamingResponse(AI.chat_stream(live.snapshot, body.get("messages", []), body.get("city")), media_type="text/plain; charset=utf-8")
+    try:
+        chain = AI.resolve_chain(body.get("provider"))
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+    return StreamingResponse(AI.chat_stream(live.snapshot, body.get("messages", []), body.get("city"), chain), media_type="text/plain; charset=utf-8")
 
 
 @app.post("/api/ai/chat")

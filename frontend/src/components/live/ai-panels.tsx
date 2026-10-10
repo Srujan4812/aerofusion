@@ -1,12 +1,13 @@
 "use client";
 
-import { Bot, BrainCircuit, ChevronDown, Loader2, Send, Sparkles, User } from "lucide-react";
+import { Bot, BrainCircuit, Check, ChevronDown, Cpu, Loader2, Send, Sparkles, User } from "lucide-react";
+import { Popover } from "radix-ui";
 import { AnimatePresence, motion } from "motion/react";
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/primitives";
-import { API_URL, type LiveSnapshot } from "@/hooks/use-live";
+import { API_URL, useApi, type LiveSnapshot } from "@/hooks/use-live";
 import { fmtIst } from "@/lib/live";
 import { cn } from "@/lib/utils";
 
@@ -58,7 +59,7 @@ function Md({ text }: { text: string }) {
   return <div className="space-y-1.5">{blocks}</div>;
 }
 
-export function AiInsights({ snap, nonce = 0 }: { snap: LiveSnapshot; nonce?: number }) {
+export function AiInsights({ snap, nonce = 0, provider = "auto" }: { snap: LiveSnapshot; nonce?: number; provider?: string }) {
   const [d, setD] = useState<InsightsResp | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
@@ -69,7 +70,7 @@ export function AiInsights({ snap, nonce = 0 }: { snap: LiveSnapshot; nonce?: nu
     let alive = true;
     const force = nonce > 0 && forced.current !== nonce;
     if (force) forced.current = nonce;
-    fetch(`${API_URL}/api/ai/insights${force ? "?force=1" : ""}`)
+    fetch(`${API_URL}/api/ai/insights?provider=${provider}${force ? "&force=1" : ""}`)
       .then(async (r) => (r.ok ? r.json() : Promise.reject(new Error((await r.json().catch(() => ({}))).detail ?? `HTTP ${r.status}`))))
       .then((j: InsightsResp) => {
         if (!alive) return;
@@ -80,7 +81,7 @@ export function AiInsights({ snap, nonce = 0 }: { snap: LiveSnapshot; nonce?: nu
     return () => {
       alive = false;
     };
-  }, [snap.updated_at, nonce, tick]);
+  }, [snap.updated_at, nonce, tick, provider]);
 
   const generating = !!d?.generating;
   useEffect(() => {
@@ -177,8 +178,10 @@ function InsightCard({ ins, i }: { ins: Insight; i: number }) {
 
 const SUGGESTIONS = ["Why is the most polluted city so bad today?", "Which cities will get worse in the next 24 hours?", "Are crop fires affecting Delhi right now?", "Is it safe to go jogging in Bengaluru this evening?"];
 
-export function AiChat({ city }: { city: string }) {
-  const [msgs, setMsgs] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
+const MARK = "\u001e";
+
+export function AiChat({ city, provider = "auto" }: { city: string; provider?: string }) {
+  const [msgs, setMsgs] = useState<{ role: "user" | "assistant"; content: string; model?: string }[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const end = useRef<HTMLDivElement>(null);
@@ -194,18 +197,27 @@ export function AiChat({ city }: { city: string }) {
     setInput("");
     setBusy(true);
     try {
-      const r = await fetch(`${API_URL}/api/ai/chat/stream`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ messages: next, city }) });
+      const r = await fetch(`${API_URL}/api/ai/chat/stream`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ messages: next.map(({ role, content }) => ({ role, content })), city, provider }) });
       if (!r.ok || !r.body) throw new Error(`HTTP ${r.status}`);
       const reader = r.body.getReader();
       const dec = new TextDecoder();
-      let answer = "";
+      let raw = "";
       for (;;) {
         const { value, done } = await reader.read();
         if (done) break;
-        answer += dec.decode(value, { stream: true });
-        setMsgs([...next, { role: "assistant", content: answer }]);
+        raw += dec.decode(value, { stream: true });
+        // stream begins with \u001e<model label>\u001e
+        let model: string | undefined;
+        let answer = raw;
+        if (raw.startsWith(MARK)) {
+          const end = raw.indexOf(MARK, 1);
+          if (end < 0) continue;
+          model = raw.slice(1, end);
+          answer = raw.slice(end + 1);
+        }
+        setMsgs([...next, { role: "assistant", content: answer, model }]);
       }
-      if (!answer.trim()) setMsgs([...next, { role: "assistant", content: "⚠️ Empty answer from the model." }]);
+      if (!raw.replace(/\u001e[^\u001e]*\u001e/, "").trim()) setMsgs([...next, { role: "assistant", content: "⚠️ Empty answer from the model." }]);
     } catch (e) {
       setMsgs([...next, { role: "assistant", content: `⚠️ ${String(e)}` }]);
     } finally {
@@ -233,6 +245,11 @@ export function AiChat({ city }: { city: string }) {
             </span>
             <div className={cn("max-w-[85%] rounded-2xl px-3.5 py-2.5 text-[13px] leading-relaxed", m.role === "user" ? "bg-white/90 text-slate-900" : "bg-surface-sunken text-fg-muted")}>
               {m.role === "user" ? m.content : <Md text={m.content} />}
+              {m.model && (
+                <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-white/10 px-2 py-0.5 text-[10.5px] font-medium text-white/75">
+                  <Cpu className="size-3" /> {m.model}
+                </div>
+              )}
             </div>
           </div>
         ))}
@@ -256,5 +273,59 @@ export function AiChat({ city }: { city: string }) {
         </button>
       </form>
     </Card>
+  );
+}
+
+interface ProviderOption {
+  id: string;
+  label: string;
+  detail: string;
+  available: boolean;
+}
+
+/** Glass dropdown to pick which LLM writes the insights and answers the chat. */
+export function ModelPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const { data } = useApi<{ options: ProviderOption[] }>("/api/ai/provider");
+  const [open, setOpen] = useState(false);
+  const opts = data?.options ?? [{ id: "auto", label: "Auto", detail: "Bedrock → Groq", available: true }];
+  const cur = opts.find((o) => o.id === value) ?? opts[0];
+  return (
+    <Popover.Root open={open} onOpenChange={setOpen}>
+      <Popover.Trigger asChild>
+        <button className="glass group inline-flex h-14 min-w-[250px] items-center gap-3 rounded-full px-5 text-left transition hover:brightness-110">
+          <BrainCircuit className="size-5 shrink-0 text-primary" />
+          <span className="min-w-0 flex-1">
+            <span className="block text-[10.5px] font-semibold uppercase tracking-wider text-fg-subtle">AI model</span>
+            <span className="block truncate text-[15px] font-semibold text-fg">{cur.label}</span>
+          </span>
+          <ChevronDown className={cn("size-4 shrink-0 text-fg-subtle transition-transform", open && "rotate-180")} />
+        </button>
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Content
+          align="start"
+          sideOffset={8}
+          className="glass-pop z-[90] w-[320px] rounded-[24px] p-1.5 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
+        >
+          {opts.map((o) => (
+            <button
+              key={o.id}
+              disabled={!o.available}
+              onClick={() => {
+                onChange(o.id);
+                setOpen(false);
+              }}
+              className={cn("flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition hover:bg-surface-sunken disabled:cursor-not-allowed disabled:opacity-40", o.id === value && "bg-surface-sunken")}
+            >
+              <Check className={cn("size-4 shrink-0 text-primary", o.id === value ? "opacity-100" : "opacity-0")} />
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-semibold text-fg">{o.label}</span>
+                <span className="block truncate text-[11.5px] text-fg-muted">{o.available ? o.detail : `${o.detail} · not configured`}</span>
+              </span>
+            </button>
+          ))}
+        </Popover.Content>
+      </Popover.Portal>
+    </Popover.Root>
   );
 }

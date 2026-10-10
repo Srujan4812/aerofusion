@@ -160,7 +160,8 @@ async def _groq(messages: list[dict], json_mode: bool, max_tokens: int, chat: bo
     if not key:
         raise RuntimeError("GROQ_API_KEY not configured")
     model = os.getenv("GROQ_CHAT_MODEL", "openai/gpt-oss-20b") if chat else os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
-    body = {"model": model, "messages": messages, "temperature": 0.3, "max_tokens": max_tokens}
+    # gpt-oss models spend part of the budget on hidden reasoning — give structured output more room
+    body = {"model": model, "messages": messages, "temperature": 0.3, "max_tokens": max(max_tokens * 2, 4000) if json_mode else max_tokens}
     if json_mode:
         body["response_format"] = {"type": "json_object"}
     async with httpx.AsyncClient(timeout=60) as client:
@@ -177,9 +178,31 @@ async def _groq(messages: list[dict], json_mode: bool, max_tokens: int, chat: bo
 _PROVIDERS = {}
 
 
-async def _complete(messages: list[dict], json_mode: bool = False, max_tokens: int = 1800, chat: bool = False) -> tuple[str, str]:
+def options() -> list[dict]:
+    """Models the UI can pick from (no secrets)."""
+    cfg = provider_info()
+    groq_model = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b").split("/")[-1].upper().replace("GPT-OSS-", "GPT-OSS ")
+    opts = [
+        {"id": "auto", "label": "Auto", "detail": " → ".join(cfg["chain"]) + " (fallback)", "available": True},
+        {"id": "bedrock", "label": "Amazon Nova Micro", "detail": f"Amazon Bedrock · {cfg['bedrock_region']}", "available": cfg["bedrock"]},
+        {"id": "groq", "label": "GPT-OSS on Groq", "detail": f"{groq_model} cards · {os.getenv('GROQ_CHAT_MODEL', 'openai/gpt-oss-20b').split('/')[-1].upper().replace('GPT-OSS-', 'GPT-OSS ')} chat · free tier", "available": cfg["groq"]},
+    ]
+    if os.getenv("OLLAMA_URL"):
+        opts.append({"id": "ollama", "label": cfg["ollama_model"], "detail": "Ollama · self-hosted", "available": True})
+    return opts
+
+
+def resolve_chain(choice: str | None) -> list[str]:
+    if not choice or choice == "auto":
+        return provider_info()["chain"]
+    if choice not in _PROVIDERS:
+        raise ValueError(f"unknown provider '{choice}'")
+    return [choice]
+
+
+async def _complete(messages: list[dict], json_mode: bool = False, max_tokens: int = 1800, chat: bool = False, chain: list[str] | None = None) -> tuple[str, str]:
     errors = []
-    for name in provider_info()["chain"]:
+    for name in chain or provider_info()["chain"]:
         fn = _PROVIDERS.get(name)
         if not fn:
             continue
@@ -225,7 +248,7 @@ def _clean(data: dict) -> dict:
     return {"headline": str(data.get("headline", "")), "insights": out[:6]}
 
 
-async def insights(snap: dict) -> dict:
+async def insights(snap: dict, chain: list[str] | None = None) -> dict:
     prompt = (
         "LIVE DATA CONTEXT (JSON):\n"
         + build_context(snap)
@@ -239,7 +262,7 @@ Write 6 concise insight cards about India's air quality right now (each field 1-
 Cover: the worst hotspots and their causes, the next-24h outlook, the fire/transport signal, meteorology (wind/mixing height),
 the cross-city driver correlations, and how today compares with the CPCB 2024 same-month baseline."""
     )
-    out, label = await _complete([{"role": "system", "content": SYSTEM}, {"role": "user", "content": prompt}], json_mode=True, max_tokens=int(os.getenv("AI_INSIGHT_TOKENS", "1500")))
+    out, label = await _complete([{"role": "system", "content": SYSTEM}, {"role": "user", "content": prompt}], json_mode=True, max_tokens=int(os.getenv("AI_INSIGHT_TOKENS", "1500")), chain=chain)
     data = _clean(_parse_json(out))
     if not data["insights"]:
         raise RuntimeError(f"{label} returned no usable insights")
@@ -264,12 +287,15 @@ def _chat_messages(snap: dict, messages: list[dict], city: str | None) -> list[d
     ]
 
 
-async def chat_stream(snap: dict, messages: list[dict], city: str | None):
+MODEL_MARK = "\x1e"  # stream starts with  \x1e<model label>\x1e  so the UI can show who answered
+
+
+async def chat_stream(snap: dict, messages: list[dict], city: str | None, chain: list[str] | None = None):
     """Yield answer text. Ollama streams token by token; Bedrock / Groq answer in one fast chunk."""
     msgs = _chat_messages(snap, messages, city)
     cfg = provider_info()
     errors = []
-    for name in cfg["chain"]:
+    for name in chain or cfg["chain"]:
         if name == "ollama":
             headers = {"Authorization": f"Bearer {os.getenv('OLLAMA_API_KEY')}"} if os.getenv("OLLAMA_API_KEY") else {}
             body = {
@@ -291,6 +317,8 @@ async def chat_stream(snap: dict, messages: list[dict], city: str | None):
                             part = json.loads(line)
                             chunk = (part.get("message") or {}).get("content", "")
                             if chunk:
+                                if not sent:
+                                    yield f"{MODEL_MARK}{cfg['ollama_chat_model']} on Ollama{MODEL_MARK}"
                                 sent = True
                                 yield chunk
                             if part.get("done"):
@@ -306,7 +334,10 @@ async def chat_stream(snap: dict, messages: list[dict], city: str | None):
         if not fn:
             continue
         try:
-            text, _ = await fn(msgs, False, 1200, True)
+            text, label = await fn(msgs, False, 1200, True)
+            if not text.strip():
+                raise RuntimeError("empty response")
+            yield f"{MODEL_MARK}{label}{MODEL_MARK}"
             yield text
             return
         except Exception as e:  # noqa: BLE001
