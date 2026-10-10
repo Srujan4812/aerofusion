@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, Clock, Network, ScatterChart as ScatterIcon, Sigma } from "lucide-react";
+import { Activity, Clock, Network, RefreshCw, ScatterChart as ScatterIcon, Sigma } from "lucide-react";
 import { motion } from "motion/react";
 import { useMemo, useState } from "react";
 import { Bar, CartesianGrid, Cell, ComposedChart, Line, ResponsiveContainer, Scatter, ScatterChart, Tooltip, XAxis, YAxis, ZAxis } from "recharts";
@@ -14,9 +14,9 @@ import { CitySelect } from "@/components/ui/city-select";
 import { Kpi } from "@/components/ui/kpi";
 import { Stagger, StaggerItem } from "@/components/ui/reveal";
 import { useAppStore } from "@/hooks/use-app-store";
-import { type LiveCity, type LiveSnapshot } from "@/hooks/use-live";
+import { useLive, type LiveCity, type LiveSnapshot } from "@/hooks/use-live";
 import { categoryForPm } from "@/lib/aqi";
-import { citySeries, mean, spearman, ventilation, type SeriesPoint } from "@/lib/live";
+import { citySeries, fmtIst, mean, spearman, ventilation, type SeriesPoint } from "@/lib/live";
 import { cn } from "@/lib/utils";
 
 type FeatKey = "aod" | "dust" | "no2" | "co" | "temp" | "rh" | "wind" | "pblh" | "pressure" | "precip" | "fires_300km" | "frp_300km" | "fires_upwind" | "cpcb_baseline";
@@ -48,6 +48,19 @@ const TEMPORAL: { key: string; label: string; get: (p: SeriesPoint) => number | 
 ];
 
 export function ExplainView() {
+  const { snap, refresh, refreshing } = useLive();
+  const [nonce, setNonce] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const refreshAll = async () => {
+    setBusy(true);
+    try {
+      await refresh();
+      setNonce((n) => n + 1);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const spinning = busy || refreshing;
   return (
     <div>
       <PageHero
@@ -58,14 +71,29 @@ export function ExplainView() {
         }
         subtitle="Data-driven explanations measured on today's live data: which conditions move with PM2.5 across 33 cities, and hour by hour within a city."
       >
-        <CitySelect size="lg" />
+        <div className="flex flex-wrap items-center gap-3">
+          <CitySelect size="lg" />
+          <button
+            onClick={refreshAll}
+            disabled={spinning}
+            className="glass inline-flex h-14 items-center gap-2.5 rounded-full px-6 text-[15px] font-semibold text-fg transition hover:brightness-110 disabled:opacity-60"
+          >
+            <RefreshCw className={cn("size-5 text-primary", spinning && "animate-spin")} />
+            {spinning ? "Refreshing data & AI…" : "Refresh everything"}
+          </button>
+          {snap && (
+            <span className="text-xs text-fg-muted">
+              Data as of {fmtIst(Date.parse(snap.updated_at), { hour: "numeric", minute: "2-digit", hour12: true })} IST
+            </span>
+          )}
+        </div>
       </PageHero>
-      <LiveGate>{(s) => <Body snap={s} />}</LiveGate>
+      <LiveGate>{(s) => <Body snap={s} nonce={nonce} />}</LiveGate>
     </div>
   );
 }
 
-function Body({ snap }: { snap: LiveSnapshot }) {
+function Body({ snap, nonce }: { snap: LiveSnapshot; nonce: number }) {
   const slug = useAppStore((s) => s.city);
   const setCity = useAppStore((s) => s.setCity);
   const [nowMs] = useState(() => Date.now());
@@ -132,7 +160,7 @@ function Body({ snap }: { snap: LiveSnapshot }) {
       </Stagger>
 
       <div className="mt-4">
-        <AiInsights snap={snap} />
+        <AiInsights snap={snap} nonce={nonce} />
       </div>
 
       <div className="mt-4 grid gap-4 xl:grid-cols-12">

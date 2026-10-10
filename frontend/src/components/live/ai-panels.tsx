@@ -1,6 +1,6 @@
 "use client";
 
-import { Bot, BrainCircuit, ChevronDown, Loader2, RefreshCw, Send, Sparkles, User } from "lucide-react";
+import { Bot, BrainCircuit, ChevronDown, Loader2, Send, Sparkles, User } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -54,20 +54,19 @@ function Md({ text }: { text: string }) {
   return <div className="space-y-1.5">{blocks}</div>;
 }
 
-export function AiInsights({ snap }: { snap: LiveSnapshot }) {
+export function AiInsights({ snap, nonce = 0 }: { snap: LiveSnapshot; nonce?: number }) {
   const [state, setState] = useState<{ key: string; data: InsightsResp | null; error: string | null }>({ key: "", data: null, error: null });
-  const [nonce, setNonce] = useState(0);
   const key = `${snap.updated_at}:${nonce}`;
   useEffect(() => {
     let alive = true;
-    fetch(`${API_URL}/api/ai/insights`)
+    fetch(`${API_URL}/api/ai/insights${nonce ? "?force=1" : ""}`)
       .then(async (r) => (r.ok ? r.json() : Promise.reject(new Error((await r.json().catch(() => ({}))).detail ?? `HTTP ${r.status}`))))
       .then((d) => alive && setState({ key, data: d as InsightsResp, error: null }))
       .catch((e) => alive && setState({ key, data: null, error: String(e.message ?? e) }));
     return () => {
       alive = false;
     };
-  }, [key]);
+  }, [key, nonce]);
   const loading = state.key !== key;
   const d = loading ? null : state.data;
 
@@ -77,11 +76,7 @@ export function AiInsights({ snap }: { snap: LiveSnapshot }) {
         title="AI analyst · live insights"
         subtitle={d ? `Reasoned from the ${fmtIst(Date.parse(d.updated_at), { hour: "numeric", minute: "2-digit", hour12: true })} IST snapshot · ${d.model} on Groq` : "Reading the current live data…"}
         icon={<BrainCircuit className="size-4" />}
-        action={
-          <button onClick={() => setNonce((n) => n + 1)} disabled={loading} className="inline-flex items-center gap-1.5 rounded-full bg-surface-sunken px-3 py-1.5 text-xs font-semibold text-fg disabled:opacity-50">
-            <RefreshCw className={cn("size-3.5", loading && "animate-spin")} /> Regenerate
-          </button>
-        }
+        action={loading ? <Loader2 className="size-4 animate-spin text-primary" /> : undefined}
       />
       {state.error && !loading ? (
         <div className="rounded-2xl bg-amber-500/12 p-3 text-sm text-amber-200">AI insights unavailable: {state.error}</div>

@@ -155,12 +155,12 @@ _ai_cache: dict[str, dict] = {}
 
 
 @app.get("/api/ai/insights")
-async def ai_insights():
+async def ai_insights(force: bool = False):
     """LLM-written insight cards with reasoning, regenerated once per live refresh."""
     if live.snapshot is None:
         await live.refresh()
     snap = live.snapshot
-    hit = _ai_cache.get(snap["updated_at"])
+    hit = None if force else _ai_cache.get(snap["updated_at"])
     if hit:
         return hit
     try:
