@@ -5,6 +5,7 @@ import { AnimatePresence, motion, useMotionValueEvent, useScroll } from "motion/
 import Link from "next/link";
 import { useState } from "react";
 import { LogoMark } from "@/components/layout/logo";
+import { SoundToggle } from "@/components/layout/sound";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { useAppStore } from "@/hooks/use-app-store";
 import { cn } from "@/lib/utils";
@@ -74,6 +75,7 @@ export function LandingNav() {
             <span className="truncate">Search city (e.g., Delhi, Bengaluru…)</span>
           </button>
           <div className={cn("grid size-12 place-items-center rounded-full", overHero ? "bg-white/10 text-white shadow-[inset_0_0_0_0.75px_rgba(255,255,255,0.28)] [&_button]:text-white" : "")}>
+            <SoundToggle className="text-white/85 hover:bg-white/15 hover:text-white" />
             <ThemeToggle />
           </div>
           <Link

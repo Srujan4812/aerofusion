@@ -14,6 +14,7 @@ import { fmtDateTimeMs } from "@/lib/format";
 import { citySeries, fmtIst, peak, window } from "@/lib/live";
 import { cn } from "@/lib/utils";
 import { LogoMark } from "./logo";
+import { SoundToggle } from "./sound";
 import { ThemeToggle } from "./theme-toggle";
 
 function DataModePill() {
@@ -145,6 +146,7 @@ export function Topbar() {
           <Clock />
           <DataModePill />
           <Notifications />
+          <SoundToggle />
           <ThemeToggle />
           <Link
             href="/about"
