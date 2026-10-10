@@ -3,7 +3,7 @@
 // Port of the Framer "Smoothcursor" component (spring-follow arrow that rotates with movement direction,
 // squishes while moving and on click). Hidden on touch, narrow or portrait screens.
 import { motion, useSpring } from "motion/react";
-import { useEffect, useRef, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
 
 const subscribe = (cb: () => void) => {
   window.addEventListener("resize", cb);
@@ -48,6 +48,117 @@ function CursorSVG({ invert }: { invert?: boolean }) {
   );
 }
 
+interface TrailPoint {
+  x: number;
+  y: number;
+  age: number;
+}
+interface Puff {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  r: number;
+  age: number;
+  life: number;
+}
+
+/**
+ * Jet-contrail tail behind the cursor (technique from Framer "CursorDotTrail"): a tapering line of recent
+ * positions that fades with age, plus soft smoke puffs that drift, expand and dissolve.
+ */
+function JetTrail({ getPos, color = "255,255,255", trailMs = 450, smokeMs = 1000 }: { getPos: () => { x: number; y: number }; color?: string; trailMs?: number; smokeMs?: number }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const canvas = ref.current;
+    const ctx = canvas?.getContext("2d");
+    if (!canvas || !ctx) return;
+    const resize = () => {
+      const dpr = Math.max(1, window.devicePixelRatio || 1);
+      canvas.width = Math.floor(window.innerWidth * dpr);
+      canvas.height = Math.floor(window.innerHeight * dpr);
+      canvas.style.width = `${window.innerWidth}px`;
+      canvas.style.height = `${window.innerHeight}px`;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+    resize();
+    window.addEventListener("resize", resize);
+
+    let points: TrailPoint[] = [];
+    let puffs: Puff[] = [];
+    let last = performance.now();
+    let prev = getPos();
+    let raf = 0;
+
+    const frame = () => {
+      const now = performance.now();
+      const dt = Math.min(now - last, 33);
+      last = now;
+      const pos = getPos();
+      const dx = pos.x - prev.x;
+      const dy = pos.y - prev.y;
+      const speed = Math.hypot(dx, dy);
+      prev = pos;
+
+      // contrail points
+      if (speed > 0.3) points.push({ x: pos.x, y: pos.y, age: 0 });
+      for (const p of points) p.age += dt;
+      points = points.filter((p) => p.age < trailMs);
+
+      // smoke: more puffs the faster the cursor moves
+      const spawn = Math.min(3, speed / 6);
+      for (let i = 0; i < Math.floor(spawn + Math.random()); i++) {
+        if (speed < 1.5) break;
+        const back = Math.atan2(-dy, -dx) + (Math.random() - 0.5) * 0.9;
+        const v = 0.02 + Math.random() * 0.04;
+        puffs.push({ x: pos.x, y: pos.y, vx: Math.cos(back) * v, vy: Math.sin(back) * v - 0.008, r: 3 + Math.random() * 3, age: 0, life: smokeMs * (0.6 + Math.random() * 0.6) });
+      }
+      for (const f of puffs) {
+        f.age += dt;
+        f.x += f.vx * dt;
+        f.y += f.vy * dt;
+        f.r += dt * 0.022;
+      }
+      puffs = puffs.filter((f) => f.age < f.life).slice(-160);
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // smoke (behind the contrail)
+      for (const f of puffs) {
+        const a = 0.22 * (1 - f.age / f.life) ** 1.6;
+        const g = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, f.r);
+        g.addColorStop(0, `rgba(${color},${a})`);
+        g.addColorStop(1, `rgba(${color},0)`);
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // contrail: segment by segment, thicker and brighter toward the cursor
+      ctx.lineCap = "round";
+      for (let i = 1; i < points.length; i++) {
+        const a = points[i - 1];
+        const b = points[i];
+        const life = 1 - b.age / trailMs;
+        ctx.strokeStyle = `rgba(${color},${0.55 * life * life})`;
+        ctx.lineWidth = 0.5 + 3.5 * life;
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.stroke();
+      }
+      raf = requestAnimationFrame(frame);
+    };
+    raf = requestAnimationFrame(frame);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", resize);
+    };
+  }, [getPos, color, trailMs, smokeMs]);
+  return <canvas ref={ref} aria-hidden style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 999998 }} />;
+}
+
 export function SmoothCursor({
   cursorSize = 40,
   stiffness = 400,
@@ -57,6 +168,7 @@ export function SmoothCursor({
   enableBlendMode = false,
   invertIconColors = false,
   enableClickEffect = true,
+  trail = true,
 }: {
   cursorSize?: number;
   stiffness?: number;
@@ -66,6 +178,8 @@ export function SmoothCursor({
   enableBlendMode?: boolean;
   invertIconColors?: boolean;
   enableClickEffect?: boolean;
+  /** jet contrail + smoke behind the cursor */
+  trail?: boolean;
 }) {
   const visible = useSyncExternalStore(subscribe, canShow, () => false);
   const cursorX = useSpring(-100, { stiffness, damping, mass });
@@ -79,6 +193,8 @@ export function SmoothCursor({
   const accRotation = useRef(0);
   const raf = useRef<number | null>(null);
   const down = useRef(false);
+  const first = useRef(true);
+  const getPos = useCallback(() => ({ x: cursorX.get(), y: cursorY.get() }), [cursorX, cursorY]);
 
   useEffect(() => {
     if (!visible) return;
@@ -91,6 +207,12 @@ export function SmoothCursor({
       lastTime.current = now;
       lastPos.current = pos;
       const speed = Math.hypot(velocity.current.x, velocity.current.y);
+      if (first.current) {
+        // appear at the pointer instead of flying in from off-screen (no streak in the trail)
+        first.current = false;
+        cursorX.jump(pos.x);
+        cursorY.jump(pos.y);
+      }
       cursorX.set(pos.x);
       cursorY.set(pos.y);
       if (speed > 0.1) {
@@ -141,6 +263,7 @@ export function SmoothCursor({
   return (
     <>
       {hideSystemCursor && <style>{`* { cursor: none !important; }`}</style>}
+      {trail && <JetTrail getPos={getPos} />}
       <motion.div
         aria-hidden
         style={{
