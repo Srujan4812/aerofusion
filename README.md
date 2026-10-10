@@ -3,6 +3,8 @@
 **Explainable PM2.5 air-quality monitoring and forecasting for 33 Indian cities.**
 A live multi-source data-fusion backend (Copernicus CAMS, Open-Meteo, NASA FIRMS, NASA GIBS, CPCB archive) feeding an Apple-style Liquid Glass dashboard, with an LLM analyst (Amazon Nova Micro on Bedrock, Groq fallback) that explains what is driving pollution right now. Status and remaining work: [PROGRESS.md](PROGRESS.md).
 
+**🌐 Live:** https://aerofusion.vercel.app · API: https://aerofusion-api.onrender.com ([health](https://aerofusion-api.onrender.com/health))
+
 > Status: ~90% — all dashboards on live data, AI explainability with model picker. Remaining: deployment, rate-limiting, cleanup, tests. Forecasts shown are Copernicus CAMS; no custom-model accuracy is claimed.
 
 ---
@@ -62,6 +64,15 @@ frontend/  Next.js 16 · React 19 · Tailwind v4 · Motion · Recharts · MapLib
 | GET | `/api/ai/provider` | Configured LLM chain (no secrets) |
 | GET | `/api/ai/insights?force=1` | AI insight cards (generated in background; returns cache + `generating` status) |
 | POST | `/api/ai/chat` · `/api/ai/chat/stream` | `{messages:[{role,content}], city?}` → grounded answer (streamed) |
+
+## Deployment
+| Part | Host | Notes |
+|---|---|---|
+| Frontend | **Vercel** — `aerofusion` project, root `frontend/`, auto-deploys on push to `main` | env `NEXT_PUBLIC_API_URL=https://aerofusion-api.onrender.com` |
+| Backend | **Render** free web service via [`render.yaml`](render.yaml), auto-deploys on push | secrets `XKDR_API_KEY`, `AWS_BEARER_TOKEN_BEDROCK`, `GROQ_API_KEY` set in Render; refresh every 12 h |
+
+Render's free plan sleeps after ~15 min idle; the first visit wakes it (~1 min, the UI shows a "connecting" card and retries automatically).
+Weather falls back from Open-Meteo to MET Norway when the shared cloud IP is rate-limited.
 
 ## Run locally
 

@@ -3,15 +3,15 @@
 > Resume point for anyone (human or AI). Update after every milestone. Last update: **2026-10-10** · tag `checkpoint-2026-10-10b`.
 
 ```
-Overall (current scope)      ██████████████████░░  90%
+Overall (current scope)      ███████████████████░  95%
 Frontend UI (12 pages)       ████████████████████ 100%  Liquid Glass, light/dark, photo backgrounds, sounds
 Live data backend            ████████████████████ 100%  6 sources → fusion → (T,33,20) tensor, auto-refresh every 12 h
 Dashboards on real data      ████████████████████ 100%  no simulated values left in any dashboard
 AI explainability            ████████████████████ 100%  model picker: Nova Micro (Bedrock) / Groq, auto-fallback, streamed chat
 Docs                         ████████████████░░░░  80%  README + this file (screenshots missing)
-Code cleanup & security      ████░░░░░░░░░░░░░░░░  20%  unused simulator code, AI endpoint rate-limit
+Code cleanup & security      ████████░░░░░░░░░░░░  40%  rate limits done; unused simulator code left
 Tests / CI                   █░░░░░░░░░░░░░░░░░░░   5%
-Deployment (public URL)      ░░░░░░░░░░░░░░░░░░░░   0%  runs locally only
+Deployment (public URL)      ████████████████████ 100%  https://aerofusion.vercel.app + Render API
 ```
 
 > **Scope decision (2026-10-10):** training MW-AeroFusion-Net is **out of scope**. AeroFusion ships as a live
@@ -51,13 +51,14 @@ Deployment (public URL)      ░░░░░░░░░░░░░░░░░
 
 ## ⏳ What's left (current scope)
 
-### 1. Deployment — to get a public URL
-- [ ] Backend: Dockerfile + host (Render / Railway / AWS App Runner / EC2) with secrets `XKDR_API_KEY`, `AWS_BEARER_TOKEN_BEDROCK`, `GROQ_API_KEY`
-- [ ] Frontend: Vercel (free) with `NEXT_PUBLIC_API_URL` = backend URL; set `AEROFUSION_CORS` on the backend to the Vercel domain
-- [ ] Persist `backend/data/` (tensor + caches) on a volume
+### 1. Deployment — ✅ done (2026-10-10)
+- [x] Frontend on Vercel: https://aerofusion.vercel.app (auto-deploy from `main`, root `frontend/`)
+- [x] Backend on Render free: https://aerofusion-api.onrender.com (`render.yaml`, secrets in Render)
+- [x] Refresh every 12 h; Open-Meteo 429 → retry → MET Norway fallback; last-good data kept on failures
+- [ ] Optional: always-on backend (Render paid / AWS) to avoid the ~1 min cold start after idle
 
 ### 2. Security & cost control
-- [ ] Rate-limit `/api/ai/*` and `/api/live/refresh` (per-IP) so the public can't burn the Bedrock credit
+- [x] Rate-limit `/api/ai/*` and `/api/live/refresh` (per-IP): chat 6/min & 80/day, refresh 2/min, forced AI 3/5 min
 - [ ] AWS Budgets alert on the Bedrock credit; rotate the Bedrock key that was shared in chat
 - [ ] Switch `BEDROCK_REGION=ap-south-1`, `BEDROCK_MODEL=apac.amazon.nova-micro-v1:0` once AWS account verification finishes
 
