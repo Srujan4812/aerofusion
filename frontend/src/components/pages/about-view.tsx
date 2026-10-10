@@ -125,7 +125,7 @@ export function AboutView() {
               <Badge tone="primary" className="mt-0.5 shrink-0">
                 Live
               </Badge>
-              <span>Current and forecast PM2.5 is the Copernicus CAMS model, with Open-Meteo weather, NASA FIRMS fires and NASA GIBS imagery, refreshed every 10 minutes by the AeroFusion backend. CAMS is always labelled as CAMS.</span>
+              <span>Current and forecast PM2.5 is the Copernicus CAMS model, with Open-Meteo weather, NASA FIRMS fires and NASA GIBS imagery, refreshed every 12 hours by the AeroFusion backend (or on demand with Refresh). CAMS is always labelled as CAMS.</span>
             </li>
             <li className="flex gap-3">
               <Badge tone="primary" className="mt-0.5 shrink-0">

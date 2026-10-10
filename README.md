@@ -36,7 +36,7 @@ Extras: light/dark themes, smooth scrolling and motion, water-drop click sounds,
 | **Groq** (`gpt-oss-120b` / `gpt-oss-20b`) — fallback | Used automatically if Bedrock fails | `GROQ_API_KEY` |
 | **Ollama** (optional, self-hosted) | Extra fallback / offline | `OLLAMA_URL` |
 
-Every refresh (default 10 min) fuses these into a `(time ≤ 72, cities = 33, features = 20)` tensor saved to `backend/data/processed/live_tensor.npz`.
+Every refresh (every 12 h, `AEROFUSION_REFRESH_SECONDS=43200`, or on demand) fuses these into a `(time ≤ 72, cities = 33, features = 20)` tensor saved to `backend/data/processed/live_tensor.npz`.
 
 ## Architecture
 

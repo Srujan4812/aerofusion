@@ -99,6 +99,9 @@ class LiveService:
         self.cpcb_cache: S.SourceResult | None = None
         self.cpcb_cached_at = 0.0
         self.snapshot: dict | None = None
+        self.last_good: dict = {}
+        self.last_good_at: dict[str, float] = {}
+        self.wx_fetched_at = 0.0
         self.last_refresh: float | None = None
         self.refresh_count = 0
         self.history_x: list[np.ndarray] = []
@@ -131,13 +134,28 @@ class LiveService:
         async with self.lock:
             t0 = time.perf_counter()
             async with httpx.AsyncClient(timeout=45, headers={"User-Agent": "AeroFusion/0.1 (research dashboard)"}, follow_redirects=True) as client:
-                tasks = [S.fetch_air_quality(client), S.fetch_weather(client), S.fetch_fires(client), S.fetch_gibs(client)]
+                # Weather changes slowly and the free API is rate-limited per IP: fetch it at most every 30 min.
+                wx_prev = self.results.get("weather")
+                need_wx = wx_prev is None or not wx_prev.ok or time.time() - self.wx_fetched_at > float(os.getenv("WEATHER_REFRESH_SECONDS", "1800"))
+                tasks = [S.fetch_air_quality(client), S.fetch_fires(client), S.fetch_gibs(client)]
+                if need_wx:
+                    tasks.append(S.fetch_weather(client))
                 # The CPCB archive changes monthly — refresh it at most every 12 h.
                 need_cpcb = self.cpcb_cache is None or not self.cpcb_cache.ok or time.time() - self.cpcb_cached_at > 12 * 3600
                 if need_cpcb:
                     tasks.append(S.fetch_cpcb_baseline(client, self.api_key))
                 res = await asyncio.gather(*tasks)
             for r in res:
+                prev = self.last_good.get(r.id)
+                if r.ok:
+                    self.last_good[r.id] = r
+                    if r.id == "weather":
+                        self.wx_fetched_at = time.time()
+                elif prev is not None and time.time() - self.last_good_at.get(r.id, 0) < 6 * 3600:
+                    # keep serving the last good data (marked stale) instead of dropping the source
+                    r = S.SourceResult(id=prev.id, ok=True, records=prev.records, latency_ms=r.latency_ms, error=f"stale (last update failed: {(r.error or '')[:80]})", fetched_at=prev.fetched_at, data=prev.data)
+                if r.ok and not (r.error or "").startswith("stale"):
+                    self.last_good_at[r.id] = time.time()
                 self.results[r.id] = r
             if need_cpcb:
                 self.cpcb_cache = self.results["cpcb"]

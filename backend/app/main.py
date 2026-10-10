@@ -26,7 +26,7 @@ from .live import sources as S  # noqa: E402
 from .live.service import LiveService  # noqa: E402
 from .sim.core import CITY_BY_SLUG  # noqa: E402
 
-live = LiveService(interval_s=int(os.getenv("AEROFUSION_REFRESH_SECONDS", "600")))
+live = LiveService(interval_s=int(os.getenv("AEROFUSION_REFRESH_SECONDS", "43200")))
 
 
 @asynccontextmanager

@@ -93,17 +93,21 @@ WX_VARS = ["temperature_2m", "relative_humidity_2m", "wind_speed_10m", "wind_dir
 
 async def fetch_weather(client: httpx.AsyncClient) -> SourceResult:
     async def run():
-        r = await client.get(
-            "https://api.open-meteo.com/v1/forecast",
-            params={
-                **_latlon_params(CITIES),
-                "current": ",".join(WX_VARS),
-                "hourly": "temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m,boundary_layer_height",
-                "wind_speed_unit": "ms",
-                "past_days": 2,
-                "forecast_days": 4,
-            },
-        )
+        params = {
+            **_latlon_params(CITIES),
+            "current": ",".join(WX_VARS),
+            "hourly": "temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m,boundary_layer_height",
+            "wind_speed_unit": "ms",
+            "past_days": 2,
+            "forecast_days": 4,
+        }
+        # Free Open-Meteo is rate-limited per IP (shared on cloud hosts) — back off and retry on 429
+        for attempt, wait in enumerate((0, 4, 12)):
+            if wait:
+                await asyncio.sleep(wait)
+            r = await client.get("https://api.open-meteo.com/v1/forecast", params=params)
+            if r.status_code != 429:
+                break
         r.raise_for_status()
         rows = r.json()
         rows = rows if isinstance(rows, list) else [rows]

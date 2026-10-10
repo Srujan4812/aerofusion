@@ -802,7 +802,7 @@ function FloatingWidgets({ snap }: { snap: LiveSnapshot | null }) {
             Live right now
           </div>
           <div className="text-sm text-white/75">
-            Updated every 10 minutes from CAMS, Open-Meteo and NASA FIRMS
+            Refreshed every 12 hours from CAMS, Open-Meteo and NASA FIRMS
           </div>
         </div>
         <Link

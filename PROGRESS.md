@@ -5,7 +5,7 @@
 ```
 Overall (current scope)      ██████████████████░░  90%
 Frontend UI (12 pages)       ████████████████████ 100%  Liquid Glass, light/dark, photo backgrounds, sounds
-Live data backend            ████████████████████ 100%  6 sources → fusion → (T,33,20) tensor, auto-refresh 10 min
+Live data backend            ████████████████████ 100%  6 sources → fusion → (T,33,20) tensor, auto-refresh every 12 h
 Dashboards on real data      ████████████████████ 100%  no simulated values left in any dashboard
 AI explainability            ████████████████████ 100%  model picker: Nova Micro (Bedrock) / Groq, auto-fallback, streamed chat
 Docs                         ████████████████░░░░  80%  README + this file (screenshots missing)
@@ -41,7 +41,7 @@ Deployment (public URL)      ░░░░░░░░░░░░░░░░░
 - [x] Architecture diagram, illustrative metrics and demo-mode labels removed
 
 ### Backend (`backend/`)
-- [x] FastAPI app, background refresh loop (600 s), CORS for localhost:3000
+- [x] FastAPI app, background refresh loop (12 h; weather cached 30 min, retry + last-good fallback), CORS for localhost:3000
 - [x] Sources: CAMS (Open-Meteo AQ), Open-Meteo weather, NASA FIRMS (VIIRS 24 h), NASA GIBS (WMS/WMTS), XKDR CPCB archive (key), calendar
 - [x] Fusion → `(T ≤ 72, N = 33, F = 20)` tensor saved to `backend/data/processed/live_tensor.npz`
 - [x] Endpoints: `/health`, `/api/live/{status,snapshot,refresh}`, `/api/history`, `/api/history/{city}`, `/api/archive`, `/api/tensor`, `/api/ai/insights`, `/api/ai/chat`

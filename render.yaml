@@ -14,7 +14,7 @@ services:
       - key: PYTHON_VERSION
         value: 3.12.7
       - key: AEROFUSION_REFRESH_SECONDS
-        value: "600"
+        value: "43200"   # refresh all live sources once every 12 h
       - key: AEROFUSION_CORS
         value: http://localhost:3000
       - key: AEROFUSION_CORS_REGEX
