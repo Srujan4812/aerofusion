@@ -434,55 +434,88 @@ function ModelCard() {
 }
 
 function FloatingWidgets({ snap }: { snap: LiveSnapshot | null }) {
-  const line = useMemo(() => { const m = snap?.cities.find((c) => c.slug === "mumbai"); return m && snap ? win(citySeries(m, Date.parse(snap.updated_at)), 0, 24).map((p) => p.pm25 ?? 0) : [1, 2, 3, 2, 4]; }, [snap]);
-  const top = useMemo(
-    () => (!snap ? [] : snap.cities.map((c) => ({ c, v: c.pm25 ?? 0 })).sort((a, b) => b.v - a.v).slice(0, 3)),
-    [snap],
-  );
+  const mumbai = useMemo(() => {
+    const m = snap?.cities.find((c) => c.slug === "mumbai");
+    return m && snap ? win(citySeries(m, Date.parse(snap.updated_at)), 0, 24).map((p) => p.pm25 ?? 0) : [1, 2, 3, 2, 4];
+  }, [snap]);
+  const top = useMemo(() => (!snap ? [] : snap.cities.map((c) => ({ c, v: c.pm25 ?? 0 })).sort((a, b) => b.v - a.v).slice(0, 4)), [snap]);
   const avg = useMemo(() => (!snap ? 0 : snap.cities.reduce((s, c) => s + (c.pm25 ?? 0), 0) / snap.cities.length), [snap]);
+  const regions = snap?.fires.regions.slice(0, 7) ?? [];
+  const label = "text-[11px] font-semibold uppercase tracking-[0.14em] text-white/70";
+  const card = "flex h-full min-h-[190px] flex-col p-5 text-white";
   return (
-    <div className="relative grid grid-cols-2 gap-4 lg:block lg:h-full">
-      <motion.div {...reveal} className="lg:absolute lg:left-[4%] lg:top-[4%]">
-        <GlassPanel className="w-full p-4 text-white lg:w-[220px]">
-          <div className="text-[11px] font-semibold uppercase tracking-wider text-white/70">Mumbai · next 24 h</div>
-          <MiniLine values={line} w={180} h={50} />
-        </GlassPanel>
+    <div className="flex h-full flex-col justify-center">
+      <motion.div {...reveal} className="mb-5 flex items-end justify-between gap-4">
+        <div>
+          <div className="font-display text-2xl text-white [text-shadow:0_2px_18px_rgba(5,15,35,0.5)]">Live right now</div>
+          <div className="text-sm text-white/75">Updated every 10 minutes from CAMS, Open-Meteo and NASA FIRMS</div>
+        </div>
+        <Link href="/dashboard" className="glass-hero hidden items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-white sm:inline-flex">
+          Open dashboard <ArrowRight className="size-4" />
+        </Link>
       </motion.div>
-      <motion.div {...reveal} transition={{ ...reveal.transition, delay: 0.1 }} className="lg:absolute lg:left-[46%] lg:top-[48%]">
-        <GlassPanel className="flex w-full items-center gap-3 p-4 text-white lg:w-[220px]">
-          <div className="relative grid size-14 place-items-center">
-            <svg viewBox="0 0 36 36" className="absolute inset-0 -rotate-90">
-              <circle cx="18" cy="18" r="15" fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="3.5" />
-              <motion.circle cx="18" cy="18" r="15" fill="none" stroke="#38bdf8" strokeWidth="3.5" strokeLinecap="round" strokeDasharray="94.2" initial={{ strokeDashoffset: 94.2 }} whileInView={{ strokeDashoffset: 94.2 * (1 - Math.min(1, avg / 200)) }} viewport={{ once: true }} transition={{ duration: 1.2 }} />
-            </svg>
-            <span className="font-num text-sm font-semibold">{Math.round(avg)}</span>
-          </div>
-          <div>
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-white/70">National avg</div>
-            <div className="text-xs text-white/80">PM2.5, µg/m³</div>
-          </div>
-        </GlassPanel>
-      </motion.div>
-      <motion.div {...reveal} transition={{ ...reveal.transition, delay: 0.2 }} className="lg:absolute lg:right-[22%] lg:top-[30%]">
-        <GlassPanel className="w-full p-4 text-white lg:w-[220px]">
-          <div className="text-[11px] font-semibold uppercase tracking-wider text-white/70">Most polluted now</div>
-          <div className="mt-2 space-y-1.5">
-            {top.map(({ c, v }) => (
-              <div key={c.slug} className="flex items-center gap-2 text-xs">
-                <span className="size-2 rounded-full" style={{ background: categoryForPm(v).color }} />
-                <span className="flex-1">{c.name}</span>
-                <span className="font-num">{Math.round(v)}</span>
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+        <motion.div {...reveal}>
+          <GlassPanel className={card}>
+            <div className={label}>National average</div>
+            <div className="mt-3 flex flex-1 items-center gap-4">
+              <div className="relative grid size-20 shrink-0 place-items-center">
+                <svg viewBox="0 0 36 36" className="absolute inset-0 -rotate-90">
+                  <circle cx="18" cy="18" r="15" fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="3.2" />
+                  <motion.circle cx="18" cy="18" r="15" fill="none" stroke={categoryForPm(avg).color} strokeWidth="3.2" strokeLinecap="round" strokeDasharray="94.2" initial={{ strokeDashoffset: 94.2 }} whileInView={{ strokeDashoffset: 94.2 * (1 - Math.min(1, avg / 150)) }} viewport={{ once: true }} transition={{ duration: 1.2 }} />
+                </svg>
+                <span className="font-num text-xl font-semibold">{Math.round(avg)}</span>
               </div>
-            ))}
-          </div>
-        </GlassPanel>
-      </motion.div>
-      <motion.div {...reveal} transition={{ ...reveal.transition, delay: 0.3 }} className="lg:absolute lg:right-[4%] lg:top-[52%]">
-        <GlassPanel className="w-full p-4 text-white lg:w-[170px]">
-          <div className="text-[11px] font-semibold uppercase tracking-wider text-white/70">Fires today · {snap?.fires.total ?? "—"}</div>
-          <MiniBars values={snap?.fires.regions.slice(0, 6).map((r) => r.count) ?? [1, 1]} color="#f97316" />
-        </GlassPanel>
-      </motion.div>
+              <div>
+                <div className="text-sm text-white/85">PM2.5, µg/m³</div>
+                {snap && <AqiBadge pm={avg} size="sm" className="mt-2 !bg-white/90" />}
+              </div>
+            </div>
+          </GlassPanel>
+        </motion.div>
+        <motion.div {...reveal} transition={{ ...reveal.transition, delay: 0.08 }}>
+          <GlassPanel className={card}>
+            <div className={label}>Most polluted now</div>
+            <div className="mt-3 flex-1 space-y-2">
+              {top.map(({ c, v }) => (
+                <div key={c.slug} className="flex items-center gap-2.5 text-sm">
+                  <span className="size-2.5 rounded-full" style={{ background: categoryForPm(v).color, boxShadow: `0 0 8px ${categoryForPm(v).color}` }} />
+                  <span className="flex-1 truncate">{c.name}</span>
+                  <span className="font-num font-semibold">{Math.round(v)}</span>
+                </div>
+              ))}
+            </div>
+          </GlassPanel>
+        </motion.div>
+        <motion.div {...reveal} transition={{ ...reveal.transition, delay: 0.16 }}>
+          <GlassPanel className={card}>
+            <div className={label}>Mumbai · next 24 h</div>
+            <div className="mt-3 flex flex-1 items-center">
+              <MiniLine values={mumbai} w={240} h={80} />
+            </div>
+            <div className="flex justify-between text-[11px] text-white/60">
+              <span>Now</span>
+              <span>+24 h</span>
+            </div>
+          </GlassPanel>
+        </motion.div>
+        <motion.div {...reveal} transition={{ ...reveal.transition, delay: 0.24 }}>
+          <GlassPanel className={card}>
+            <div className={label}>Fires today · {snap?.fires.total.toLocaleString("en-IN") ?? "—"}</div>
+            <div className="mt-3 flex-1 space-y-1.5">
+              {regions.slice(0, 4).map((r) => (
+                <div key={r.region} className="grid grid-cols-[1fr_90px_34px] items-center gap-2 text-xs">
+                  <span className="truncate text-white/85">{r.region}</span>
+                  <span className="h-1.5 overflow-hidden rounded-full bg-white/12">
+                    <motion.span className="block h-full rounded-full bg-gradient-to-r from-amber-300 to-orange-500" initial={{ width: 0 }} whileInView={{ width: `${(r.count / (regions[0]?.count || 1)) * 100}%` }} viewport={{ once: true }} transition={{ duration: 0.8 }} />
+                  </span>
+                  <span className="font-num text-right">{r.count}</span>
+                </div>
+              ))}
+            </div>
+          </GlassPanel>
+        </motion.div>
+      </div>
     </div>
   );
 }
