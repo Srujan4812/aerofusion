@@ -32,7 +32,9 @@ Extras: light/dark themes, smooth scrolling and motion, water-drop click sounds,
 | **NASA FIRMS** (VIIRS, 24 h) | Active fires, FRP, upwind fire counts | none |
 | **NASA GIBS** | Satellite imagery (true colour, AOD, thermal) | none |
 | **XKDR India Air Quality API** (CPCB CAAQMS) | Measured history & same-month baselines | `XKDR_API_KEY` |
-| **Groq** (`openai/gpt-oss-120b`, `gpt-oss-20b`) | AI insights & chat on Explainability | `GROQ_API_KEY` |
+| **Amazon Bedrock** (Nova Micro) — primary | AI insights & chat on Explainability | `AWS_BEARER_TOKEN_BEDROCK` |
+| **Groq** (`gpt-oss-120b` / `gpt-oss-20b`) — fallback | Used automatically if Bedrock fails | `GROQ_API_KEY` |
+| **Ollama** (optional, self-hosted) | Extra fallback / offline | `OLLAMA_URL` |
 
 Every refresh (default 10 min) fuses these into a `(time ≤ 72, cities = 33, features = 20)` tensor saved to `backend/data/processed/live_tensor.npz`.
 
@@ -43,7 +45,7 @@ frontend/  Next.js 16 · React 19 · Tailwind v4 · Motion · Recharts · MapLib
    └─ LiveProvider ──HTTP──▶ backend/  FastAPI
                                 ├─ live/sources.py   fetchers (CAMS, Open-Meteo, FIRMS, GIBS, XKDR)
                                 ├─ live/service.py   refresh loop + fusion → tensor
-                                └─ live/ai.py        Groq insights & chat (grounded in the snapshot)
+                                └─ live/ai.py        LLM chain Bedrock → Groq (→ Ollama): insights & chat
 ```
 
 ### API
@@ -57,8 +59,9 @@ frontend/  Next.js 16 · React 19 · Tailwind v4 · Motion · Recharts · MapLib
 | GET | `/api/history` · `/api/history/{city}` | CPCB monthly (2022–2024) / daily 2024 |
 | GET | `/api/archive` | CPCB archive size & coverage |
 | GET | `/api/tensor` | Saved tensor shape, timestamps, coverage |
-| GET | `/api/ai/insights?force=1` | AI insight cards with reasoning |
-| POST | `/api/ai/chat` | `{messages:[{role,content}], city?}` → grounded answer |
+| GET | `/api/ai/provider` | Configured LLM chain (no secrets) |
+| GET | `/api/ai/insights?force=1` | AI insight cards (generated in background; returns cache + `generating` status) |
+| POST | `/api/ai/chat` · `/api/ai/chat/stream` | `{messages:[{role,content}], city?}` → grounded answer (streamed) |
 
 ## Run locally
 
@@ -69,7 +72,7 @@ frontend/  Next.js 16 · React 19 · Tailwind v4 · Motion · Recharts · MapLib
 python -m venv .venv
 .venv/Scripts/activate            # Windows  (macOS/Linux: source .venv/bin/activate)
 pip install -r backend/requirements.txt
-cp backend/.env.example backend/.env   # then fill in XKDR_API_KEY and GROQ_API_KEY
+cp backend/.env.example backend/.env   # then fill in XKDR_API_KEY, AWS_BEARER_TOKEN_BEDROCK, GROQ_API_KEY
 python -m uvicorn app.main:app --app-dir backend --port 8000
 
 # 2. Frontend (new terminal)
@@ -82,7 +85,11 @@ npm run dev                        # http://localhost:3000
 
 ```ini
 XKDR_API_KEY=...                   # https://airquality.xkdr.org
-GROQ_API_KEY=...                   # https://console.groq.com
+AI_PROVIDERS=bedrock,groq         # tried in order
+AWS_BEARER_TOKEN_BEDROCK=...       # Bedrock console → API keys
+BEDROCK_REGION=us-east-1
+BEDROCK_MODEL=us.amazon.nova-micro-v1:0
+GROQ_API_KEY=...                   # https://console.groq.com (fallback)
 GROQ_MODEL=openai/gpt-oss-120b
 AEROFUSION_REFRESH_SECONDS=600
 ```

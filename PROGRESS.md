@@ -7,7 +7,7 @@ Overall                      ████████████████░
 Frontend UI (12 pages)       ████████████████████ 100%  Liquid Glass, light/dark, photo backgrounds, sounds
 Live data backend            ████████████████████ 100%  6 sources → fusion → (T,33,20) tensor, auto-refresh 10 min
 Dashboards on real data      ████████████████████ 100%  no simulated values left in any dashboard
-AI explainability (Groq)     ████████████████████ 100%  insight cards with reasoning + grounded chat
+AI explainability            ████████████████████ 100%  Bedrock Nova Micro → Groq fallback; cards + streamed chat
 Historical training dataset  ███░░░░░░░░░░░░░░░░░  15%  CPCB labels reachable (196M rows); inputs not backfilled
 ML model (MW-AeroFusion-Net) ░░░░░░░░░░░░░░░░░░░░   0%  not started
 Evaluation & model serving   ░░░░░░░░░░░░░░░░░░░░   0%
@@ -42,7 +42,7 @@ Docs                         ██████████░░░░░░░
 - [x] Sources: CAMS (Open-Meteo AQ), Open-Meteo weather, NASA FIRMS (VIIRS 24 h), NASA GIBS (WMS/WMTS), XKDR CPCB archive (key), calendar
 - [x] Fusion → `(T ≤ 72, N = 33, F = 20)` tensor saved to `backend/data/processed/live_tensor.npz`
 - [x] Endpoints: `/health`, `/api/live/{status,snapshot,refresh}`, `/api/history`, `/api/history/{city}`, `/api/archive`, `/api/tensor`, `/api/ai/insights`, `/api/ai/chat`
-- [x] Groq LLM layer (`app/live/ai.py`): compact grounded context, per-refresh cache, 429 retry
+- [x] LLM layer (`app/live/ai.py`): provider chain `AI_PROVIDERS=bedrock,groq` (Amazon Nova Micro primary, Groq fallback, optional Ollama), compact grounded context, insights pre-generated in background after each refresh, streamed chat, empty/429 handling
 
 ---
 
@@ -74,7 +74,8 @@ Docs                         ██████████░░░░░░░
 - [ ] Persist snapshot history (SQLite/Parquet) instead of only the rolling 72-step tensor
 - [ ] `--reload` dev script; Dockerfile for API; deploy (frontend on Vercel, API on Render / HF Spaces) with env secrets
 - [ ] Remove the now-unused demo simulator (`frontend/src/lib/sim/*`, `backend/app/sim/*` except city list) and `use-anchor`
-- [ ] Rate-limit / auth the AI endpoints before any public deployment (Groq free tier: 8k tokens/min)
+- [ ] Rate-limit / auth the AI endpoints before any public deployment (Bedrock is pay-per-token from the $100 credit; Groq free tier is small)
+- [ ] Switch `BEDROCK_REGION` to `ap-south-1` (`apac.amazon.nova-micro-v1:0`) once AWS account verification completes
 
 ### 6. Polish
 - [ ] 4K artwork (3840 px) for backgrounds; mobile pass on Live Map & Explainability

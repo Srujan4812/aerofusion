@@ -22,8 +22,12 @@ interface Insight {
 interface InsightsResp {
   headline: string;
   insights: Insight[];
-  updated_at: string;
-  model: string;
+  updated_at: string | null;
+  model: string | null;
+  generating?: boolean;
+  generating_for_s?: number;
+  error?: string | null;
+  stale?: boolean;
 }
 
 const TONE: Record<Insight["tone"], string> = {
@@ -55,32 +59,62 @@ function Md({ text }: { text: string }) {
 }
 
 export function AiInsights({ snap, nonce = 0 }: { snap: LiveSnapshot; nonce?: number }) {
-  const [state, setState] = useState<{ key: string; data: InsightsResp | null; error: string | null }>({ key: "", data: null, error: null });
-  const key = `${snap.updated_at}:${nonce}`;
+  const [d, setD] = useState<InsightsResp | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [tick, setTick] = useState(0);
+  const forced = useRef(-1);
+
+  // fetch now; keep polling every 8 s while the server is still generating
   useEffect(() => {
     let alive = true;
-    fetch(`${API_URL}/api/ai/insights${nonce ? "?force=1" : ""}`)
+    const force = nonce > 0 && forced.current !== nonce;
+    if (force) forced.current = nonce;
+    fetch(`${API_URL}/api/ai/insights${force ? "?force=1" : ""}`)
       .then(async (r) => (r.ok ? r.json() : Promise.reject(new Error((await r.json().catch(() => ({}))).detail ?? `HTTP ${r.status}`))))
-      .then((d) => alive && setState({ key, data: d as InsightsResp, error: null }))
-      .catch((e) => alive && setState({ key, data: null, error: String(e.message ?? e) }));
+      .then((j: InsightsResp) => {
+        if (!alive) return;
+        setD(j);
+        setError(j.error && !j.insights.length ? j.error : null);
+      })
+      .catch((e) => alive && setError(String(e.message ?? e)));
     return () => {
       alive = false;
     };
-  }, [key, nonce]);
-  const loading = state.key !== key;
-  const d = loading ? null : state.data;
+  }, [snap.updated_at, nonce, tick]);
+
+  const generating = !!d?.generating;
+  useEffect(() => {
+    if (!generating) return;
+    const id = setTimeout(() => setTick((t) => t + 1), 8000);
+    return () => clearTimeout(id);
+  }, [generating, tick]);
+
+  const has = !!d && d.insights.length > 0;
+  const loading = !d && !error;
 
   return (
     <Card>
       <CardHeader
         title="AI analyst · live insights"
-        subtitle={d ? `Reasoned from the ${fmtIst(Date.parse(d.updated_at), { hour: "numeric", minute: "2-digit", hour12: true })} IST snapshot · ${d.model} on Groq` : "Reading the current live data…"}
+        subtitle={
+          has && d.updated_at
+            ? `Reasoned from the ${fmtIst(Date.parse(d.updated_at), { hour: "numeric", minute: "2-digit", hour12: true })} IST snapshot · ${d.model}`
+            : generating
+              ? `Writing insights from the live data… ${d?.generating_for_s ?? 0}s (a self-hosted CPU model can take a few minutes)`
+              : "Reading the current live data…"
+        }
         icon={<BrainCircuit className="size-4" />}
-        action={loading ? <Loader2 className="size-4 animate-spin text-primary" /> : undefined}
+        action={
+          generating || loading ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/90">
+              <Loader2 className="size-3.5 animate-spin" /> {has ? "updating…" : "generating…"}
+            </span>
+          ) : undefined
+        }
       />
-      {state.error && !loading ? (
-        <div className="rounded-2xl bg-amber-500/12 p-3 text-sm text-amber-200">AI insights unavailable: {state.error}</div>
-      ) : !d ? (
+      {error && !has ? (
+        <div className="rounded-2xl bg-amber-500/12 p-3 text-sm text-amber-200">AI insights unavailable: {error}</div>
+      ) : !has ? (
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {Array.from({ length: 6 }, (_, i) => (
             <Skeleton key={i} className="h-40 !rounded-2xl" />
@@ -160,9 +194,18 @@ export function AiChat({ city }: { city: string }) {
     setInput("");
     setBusy(true);
     try {
-      const r = await fetch(`${API_URL}/api/ai/chat`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ messages: next, city }) });
-      const j = await r.json();
-      setMsgs([...next, { role: "assistant", content: r.ok ? j.answer : `⚠️ ${j.detail ?? `HTTP ${r.status}`}` }]);
+      const r = await fetch(`${API_URL}/api/ai/chat/stream`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ messages: next, city }) });
+      if (!r.ok || !r.body) throw new Error(`HTTP ${r.status}`);
+      const reader = r.body.getReader();
+      const dec = new TextDecoder();
+      let answer = "";
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        answer += dec.decode(value, { stream: true });
+        setMsgs([...next, { role: "assistant", content: answer }]);
+      }
+      if (!answer.trim()) setMsgs([...next, { role: "assistant", content: "⚠️ Empty answer from the model." }]);
     } catch (e) {
       setMsgs([...next, { role: "assistant", content: `⚠️ ${String(e)}` }]);
     } finally {
@@ -193,7 +236,7 @@ export function AiChat({ city }: { city: string }) {
             </div>
           </div>
         ))}
-        {busy && (
+        {busy && msgs[msgs.length - 1]?.role === "user" && (
           <div className="flex items-center gap-2 text-xs text-fg-muted">
             <Loader2 className="size-3.5 animate-spin" /> Reasoning over live data…
           </div>

@@ -5,6 +5,7 @@ Run:  uvicorn app.main:app --reload --port 8000   (from the backend/ folder)
 
 from __future__ import annotations
 
+import asyncio
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -12,6 +13,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 
 load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
@@ -30,7 +32,9 @@ live = LiveService(interval_s=int(os.getenv("AEROFUSION_REFRESH_SECONDS", "600")
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     live.start()
+    watcher = asyncio.create_task(_ai_watcher())
     yield
+    watcher.cancel()
     await live.stop()
 
 
@@ -151,25 +155,77 @@ def tensor_info():
     }
 
 
-_ai_cache: dict[str, dict] = {}
+class _AiState:
+    """Insights are generated in the background (slow on CPU-only Ollama) and served from cache."""
+
+    def __init__(self):
+        self.data: dict | None = None  # last good insights
+        self.generating = False
+        self.error: str | None = None
+        self.started_at: float | None = None
+        self.task: asyncio.Task | None = None
+
+    def kick(self, snap: dict) -> None:
+        if self.generating:
+            return
+        self.generating, self.error, self.started_at = True, None, time.time()
+
+        async def run():
+            try:
+                self.data = await AI.insights(snap)
+            except Exception as e:  # noqa: BLE001
+                self.error = str(e)
+                print(f"[ai] insights failed: {e}")
+            finally:
+                self.generating = False
+
+        self.task = asyncio.create_task(run())
+
+
+ai_state = _AiState()
+
+
+async def _ai_watcher():
+    """Pre-generate insights whenever the live snapshot changes."""
+    seen = None
+    while True:
+        snap = live.snapshot
+        if snap and snap["updated_at"] != seen and not ai_state.generating:
+            seen = snap["updated_at"]
+            ai_state.kick(snap)
+        await asyncio.sleep(20)
+
+
+@app.get("/api/ai/provider")
+def ai_provider():
+    """Configured LLM backend (no secrets)."""
+    return AI.provider_info()
 
 
 @app.get("/api/ai/insights")
 async def ai_insights(force: bool = False):
-    """LLM-written insight cards with reasoning, regenerated once per live refresh."""
+    """Latest AI insight cards. Never blocks on the LLM: returns the cached set plus generation status."""
     if live.snapshot is None:
         await live.refresh()
     snap = live.snapshot
-    hit = None if force else _ai_cache.get(snap["updated_at"])
-    if hit:
-        return hit
-    try:
-        data = await AI.insights(snap)
-    except Exception as e:  # noqa: BLE001
-        raise HTTPException(502, str(e)) from e
-    _ai_cache.clear()
-    _ai_cache[snap["updated_at"]] = data
-    return data
+    fresh = ai_state.data is not None and ai_state.data.get("updated_at") == snap["updated_at"]
+    if force or (not fresh and not ai_state.generating):
+        ai_state.kick(snap)
+    return {
+        **(ai_state.data or {"headline": "", "insights": [], "updated_at": None, "model": None}),
+        "generating": ai_state.generating,
+        "generating_for_s": round(time.time() - ai_state.started_at) if ai_state.generating and ai_state.started_at else 0,
+        "error": ai_state.error,
+        "stale": not fresh,
+    }
+
+
+@app.post("/api/ai/chat/stream")
+async def ai_chat_stream(body: dict):
+    """Streamed chat answer (plain text chunks) grounded in the current live snapshot."""
+    if live.snapshot is None:
+        await live.refresh()
+    return StreamingResponse(AI.chat_stream(live.snapshot, body.get("messages", []), body.get("city")), media_type="text/plain; charset=utf-8")
 
 
 @app.post("/api/ai/chat")

@@ -92,11 +92,75 @@ def build_context(snap: dict) -> str:
     return json.dumps(ctx, separators=(",", ":"))
 
 
-async def _complete(messages: list[dict], json_mode: bool = False, max_tokens: int = 1800, model: str | None = None) -> str:
+def provider_info() -> dict:
+    """Ordered LLM chain, e.g. AI_PROVIDERS=bedrock,groq — the first that answers wins."""
+    chain = [p.strip().lower() for p in os.getenv("AI_PROVIDERS", "bedrock,groq").split(",") if p.strip()]
+    return {
+        "chain": chain,
+        "provider": chain[0] if chain else "none",
+        "bedrock_region": os.getenv("BEDROCK_REGION", "us-east-1"),
+        "bedrock_model": os.getenv("BEDROCK_MODEL", "us.amazon.nova-micro-v1:0"),
+        "bedrock": bool(os.getenv("AWS_BEARER_TOKEN_BEDROCK")),
+        "ollama_url": os.getenv("OLLAMA_URL", "http://localhost:11434").rstrip("/"),
+        "ollama_model": os.getenv("OLLAMA_MODEL", "qwen2.5:3b"),
+        "ollama_chat_model": os.getenv("OLLAMA_CHAT_MODEL") or os.getenv("OLLAMA_MODEL", "qwen2.5:3b"),
+        "groq": bool(os.getenv("GROQ_API_KEY")),
+    }
+
+
+async def _bedrock(messages: list[dict], json_mode: bool, max_tokens: int, chat: bool) -> tuple[str, str]:
+    """Amazon Bedrock Converse API with a Bedrock API key (bearer token)."""
+    key = os.getenv("AWS_BEARER_TOKEN_BEDROCK")
+    if not key:
+        raise RuntimeError("AWS_BEARER_TOKEN_BEDROCK not configured")
+    cfg = provider_info()
+    model = cfg["bedrock_model"]
+    system = [{"text": m["content"]} for m in messages if m["role"] == "system"]
+    convo = [{"role": m["role"], "content": [{"text": m["content"]}]} for m in messages if m["role"] in ("user", "assistant")]
+    if json_mode:
+        system.append({"text": "Respond with a single valid JSON object only. No prose, no code fences."})
+    body = {"messages": convo, "system": system, "inferenceConfig": {"maxTokens": min(max_tokens, 5000), "temperature": 0.3}}
+    url = f"https://bedrock-runtime.{cfg['bedrock_region']}.amazonaws.com/model/{model}/converse"
+    async with httpx.AsyncClient(timeout=90) as client:
+        for attempt in range(2):
+            r = await client.post(url, headers={"Authorization": f"Bearer {key}"}, json=body)
+            if r.status_code not in (429, 503) or attempt:
+                break
+            await asyncio.sleep(3)
+    if r.status_code != 200:
+        raise RuntimeError(f"Bedrock {r.status_code}: {r.text[:200]}")
+    parts = r.json()["output"]["message"]["content"]
+    return "".join(p.get("text", "") for p in parts), f"Amazon {model.split('.', 1)[-1].replace('amazon.', '').replace('-v1:0', '').replace('-', ' ').title()} on Bedrock"
+
+
+async def _ollama(messages: list[dict], json_mode: bool, max_tokens: int, chat: bool) -> tuple[str, str]:
+    cfg = provider_info()
+    model = cfg["ollama_chat_model"] if chat else cfg["ollama_model"]
+    headers = {}
+    if os.getenv("OLLAMA_API_KEY"):  # bearer token checked by the reverse proxy in deploy/ollama
+        headers["Authorization"] = f"Bearer {os.getenv('OLLAMA_API_KEY')}"
+    body = {
+        "model": model,
+        "messages": messages,
+        "stream": False,
+        "keep_alive": "30m",
+        "options": {"temperature": 0.3, "num_predict": max_tokens, "num_ctx": int(os.getenv("OLLAMA_NUM_CTX", "8192"))},
+    }
+    if json_mode:
+        body["format"] = "json"
+    async with httpx.AsyncClient(timeout=float(os.getenv("OLLAMA_TIMEOUT", "300"))) as client:
+        r = await client.post(f"{cfg['ollama_url']}/api/chat", headers=headers, json=body)
+    if r.status_code != 200:
+        raise RuntimeError(f"Ollama {r.status_code}: {r.text[:200]}")
+    return r.json()["message"]["content"], f"{model} on Ollama"
+
+
+async def _groq(messages: list[dict], json_mode: bool, max_tokens: int, chat: bool) -> tuple[str, str]:
     key = os.getenv("GROQ_API_KEY")
     if not key:
         raise RuntimeError("GROQ_API_KEY not configured")
-    body = {"model": model or os.getenv("GROQ_MODEL", "openai/gpt-oss-120b"), "messages": messages, "temperature": 0.3, "max_tokens": max_tokens}
+    model = os.getenv("GROQ_CHAT_MODEL", "openai/gpt-oss-20b") if chat else os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
+    body = {"model": model, "messages": messages, "temperature": 0.3, "max_tokens": max_tokens}
     if json_mode:
         body["response_format"] = {"type": "json_object"}
     async with httpx.AsyncClient(timeout=60) as client:
@@ -105,9 +169,60 @@ async def _complete(messages: list[dict], json_mode: bool = False, max_tokens: i
             if r.status_code != 429 or attempt:
                 break
             await asyncio.sleep(min(20.0, float(r.headers.get("retry-after", "8"))))
-        if r.status_code != 200:
-            raise RuntimeError(f"Groq {r.status_code}: {r.text[:200]}")
-        return r.json()["choices"][0]["message"]["content"]
+    if r.status_code != 200:
+        raise RuntimeError(f"Groq {r.status_code}: {r.text[:200]}")
+    return r.json()["choices"][0]["message"]["content"], f"{model} on Groq"
+
+
+_PROVIDERS = {}
+
+
+async def _complete(messages: list[dict], json_mode: bool = False, max_tokens: int = 1800, chat: bool = False) -> tuple[str, str]:
+    errors = []
+    for name in provider_info()["chain"]:
+        fn = _PROVIDERS.get(name)
+        if not fn:
+            continue
+        try:
+            text, label = await fn(messages, json_mode, max_tokens, chat)
+            if not text.strip():
+                raise RuntimeError("empty response")
+            return text, label
+        except Exception as e:  # noqa: BLE001
+            errors.append(f"{name}: {e}")
+            print(f"[ai] {name} failed ({e}); trying next provider")
+    raise RuntimeError("All AI providers failed — " + " | ".join(errors) if errors else "No AI provider configured")
+
+
+def _parse_json(text: str) -> dict:
+    """Small local models sometimes wrap JSON in prose or code fences."""
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        a, b = text.find("{"), text.rfind("}")
+        if a >= 0 and b > a:
+            return json.loads(text[a : b + 1])
+        raise
+
+
+def _clean(data: dict) -> dict:
+    tones = {"alert", "warn", "good", "info"}
+    out = []
+    for ins in data.get("insights") or []:
+        if not isinstance(ins, dict) or not ins.get("title"):
+            continue
+        cities = ins.get("cities") or []
+        out.append(
+            {
+                "title": str(ins["title"]),
+                "finding": str(ins.get("finding", "")),
+                "reasoning": str(ins.get("reasoning", "")),
+                "tone": ins.get("tone") if ins.get("tone") in tones else "info",
+                "cities": [str(c) for c in cities] if isinstance(cities, list) else [str(cities)],
+                "confidence": str(ins.get("confidence", "medium")).lower(),
+            }
+        )
+    return {"headline": str(data.get("headline", "")), "insights": out[:6]}
 
 
 async def insights(snap: dict) -> dict:
@@ -116,7 +231,7 @@ async def insights(snap: dict) -> dict:
         + build_context(snap)
         + """
 
-Write 6 insight cards about India's air quality right now. Return JSON:
+Write 6 concise insight cards about India's air quality right now (each field 1-2 short sentences). Return JSON:
 {"headline": "<one sentence national summary>",
  "insights": [{"title": "<short>", "finding": "<what the data shows, with numbers>",
    "reasoning": "<why, physically, step by step in 2-3 sentences, referencing the drivers>",
@@ -124,17 +239,79 @@ Write 6 insight cards about India's air quality right now. Return JSON:
 Cover: the worst hotspots and their causes, the next-24h outlook, the fire/transport signal, meteorology (wind/mixing height),
 the cross-city driver correlations, and how today compares with the CPCB 2024 same-month baseline."""
     )
-    out = await _complete([{"role": "system", "content": SYSTEM}, {"role": "user", "content": prompt}], json_mode=True, max_tokens=2600)
-    data = json.loads(out)
+    out, label = await _complete([{"role": "system", "content": SYSTEM}, {"role": "user", "content": prompt}], json_mode=True, max_tokens=int(os.getenv("AI_INSIGHT_TOKENS", "1500")))
+    data = _clean(_parse_json(out))
+    if not data["insights"]:
+        raise RuntimeError(f"{label} returned no usable insights")
     data["updated_at"] = snap["updated_at"]
-    data["model"] = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
+    data["model"] = label
     return data
 
 
 async def chat(snap: dict, messages: list[dict], city: str | None) -> str:
-    sys = SYSTEM + "\n\nLIVE DATA CONTEXT (JSON):\n" + build_context(snap)
+    msgs = _chat_messages(snap, messages, city)
+    text, _ = await _complete(msgs, max_tokens=1200, chat=True)
+    return text
+
+
+def _chat_messages(snap: dict, messages: list[dict], city: str | None) -> list[dict]:
+    sys_msg = SYSTEM + "\n\nLIVE DATA CONTEXT (JSON):\n" + build_context(snap)
     if city:
-        sys += f"\nThe user currently has '{city}' selected."
-    sys += "\nAnswer concisely in Markdown (short paragraphs or bullets)."
-    msgs = [{"role": "system", "content": sys}] + [{"role": m["role"], "content": str(m["content"])[:2000]} for m in messages[-10:] if m.get("role") in ("user", "assistant")]
-    return await _complete(msgs, max_tokens=1200, model=os.getenv("GROQ_CHAT_MODEL", "openai/gpt-oss-20b"))
+        sys_msg += f"\nThe user currently has '{city}' selected."
+    sys_msg += "\nAnswer concisely in Markdown (short paragraphs or bullets)."
+    return [{"role": "system", "content": sys_msg}] + [
+        {"role": m["role"], "content": str(m["content"])[:2000]} for m in messages[-10:] if m.get("role") in ("user", "assistant")
+    ]
+
+
+async def chat_stream(snap: dict, messages: list[dict], city: str | None):
+    """Yield answer text. Ollama streams token by token; Bedrock / Groq answer in one fast chunk."""
+    msgs = _chat_messages(snap, messages, city)
+    cfg = provider_info()
+    errors = []
+    for name in cfg["chain"]:
+        if name == "ollama":
+            headers = {"Authorization": f"Bearer {os.getenv('OLLAMA_API_KEY')}"} if os.getenv("OLLAMA_API_KEY") else {}
+            body = {
+                "model": cfg["ollama_chat_model"],
+                "messages": msgs,
+                "stream": True,
+                "keep_alive": "30m",
+                "options": {"temperature": 0.3, "num_predict": 700, "num_ctx": int(os.getenv("OLLAMA_NUM_CTX", "8192"))},
+            }
+            sent = False
+            try:
+                async with httpx.AsyncClient(timeout=httpx.Timeout(float(os.getenv("OLLAMA_TIMEOUT", "300")), connect=10)) as client:
+                    async with client.stream("POST", f"{cfg['ollama_url']}/api/chat", headers=headers, json=body) as r:
+                        if r.status_code != 200:
+                            raise RuntimeError(f"Ollama {r.status_code}")
+                        async for line in r.aiter_lines():
+                            if not line.strip():
+                                continue
+                            part = json.loads(line)
+                            chunk = (part.get("message") or {}).get("content", "")
+                            if chunk:
+                                sent = True
+                                yield chunk
+                            if part.get("done"):
+                                return
+                return
+            except Exception as e:  # noqa: BLE001
+                if sent:
+                    yield f"\n\n⚠️ stream interrupted: {e}"
+                    return
+                errors.append(f"ollama: {e}")
+                continue
+        fn = _PROVIDERS.get(name)
+        if not fn:
+            continue
+        try:
+            text, _ = await fn(msgs, False, 1200, True)
+            yield text
+            return
+        except Exception as e:  # noqa: BLE001
+            errors.append(f"{name}: {e}")
+            print(f"[ai] {name} chat failed ({e}); trying next provider")
+    yield "⚠️ All AI providers failed — " + " | ".join(errors)
+
+_PROVIDERS.update({"bedrock": _bedrock, "groq": _groq, "ollama": _ollama})

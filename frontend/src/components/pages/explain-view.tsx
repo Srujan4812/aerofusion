@@ -199,7 +199,7 @@ function Body({ snap, nonce }: { snap: LiveSnapshot; nonce: number }) {
       </div>
 
       <SourceNote>
-        AI cards and chat are written by an LLM (Groq) from the live numbers below and can make mistakes; check against the charts. Correlation is not causation: these are associations on today&apos;s live data (CAMS, Open-Meteo, NASA FIRMS, CPCB/XKDR), shown so the drivers are transparent. Model attributions (SHAP, attention and wavelet
+        AI cards and chat are written by an LLM (Amazon Nova Micro on Bedrock, Groq fallback) from the live numbers below and can make mistakes; check against the charts. Correlation is not causation: these are associations on today&apos;s live data (CAMS, Open-Meteo, NASA FIRMS, CPCB/XKDR), shown so the drivers are transparent. Model attributions (SHAP, attention and wavelet
         bands) will be added here once MW-AeroFusion-Net is trained on the archived data. <Badge tone="warn">model training pending</Badge>
       </SourceNote>
     </>
