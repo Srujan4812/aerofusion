@@ -2,12 +2,15 @@
 
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { FeatureCollection, Point } from "geojson";
-import type { StyleSpecification } from "maplibre-gl";
+import { setWorkerUrl, type StyleSpecification } from "maplibre-gl";
 import { useEffect, useMemo, useRef } from "react";
 import Map, { Layer, Marker, NavigationControl, Source, type MapRef } from "react-map-gl/maplibre";
 import { categoryForPm } from "@/lib/aqi";
 import { INDIA_OUTLINE } from "@/lib/geo/india";
 import { cn } from "@/lib/utils";
+
+// The bundler can't serve MapLibre's module worker, so serve a copy from /public.
+if (typeof window !== "undefined") setWorkerUrl("/maplibre/maplibre-gl-worker.mjs");
 
 export type Basemap = "satellite" | "dark" | "light";
 
@@ -28,10 +31,22 @@ export interface RealMapFire {
   confidence: string;
 }
 
-const CARTO = {
-  dark: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
-  light: "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
-};
+const ESRI_ATTR = "Labels & basemap: Esri, HERE, Garmin, © OpenStreetMap contributors";
+
+function rasterStyle(id: string, tiles: string, attribution: string, bg: string, labels?: string): StyleSpecification {
+  return {
+    version: 8,
+    sources: {
+      [id]: { type: "raster", tiles: [tiles], tileSize: 256, maxzoom: id === "gibs" ? 9 : 18, attribution },
+      ...(labels ? { labels: { type: "raster" as const, tiles: [labels], tileSize: 256, attribution: ESRI_ATTR } } : {}),
+    },
+    layers: [
+      { id: "bg", type: "background", paint: { "background-color": bg } },
+      { id, type: "raster", source: id },
+      ...(labels ? [{ id: "labels", type: "raster" as const, source: "labels", paint: { "raster-opacity": 0.9 } }] : []),
+    ],
+  };
+}
 
 function gibsDate() {
   const d = new Date(Date.now() - 24 * 3600 * 1000);
@@ -39,23 +54,20 @@ function gibsDate() {
 }
 
 function satelliteStyle(): StyleSpecification {
-  return {
-    version: 8,
-    sources: {
-      gibs: {
-        type: "raster",
-        tiles: [`https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_SNPP_CorrectedReflectance_TrueColor/default/${gibsDate()}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg`],
-        tileSize: 256,
-        maxzoom: 9,
-        attribution: "Imagery: NASA GIBS / Worldview (VIIRS S-NPP)",
-      },
-    },
-    layers: [
-      { id: "bg", type: "background", paint: { "background-color": "#06101f" } },
-      { id: "gibs", type: "raster", source: "gibs" },
-    ],
-  };
+  return rasterStyle(
+    "gibs",
+    `https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_SNPP_CorrectedReflectance_TrueColor/default/${gibsDate()}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg`,
+    "Imagery: NASA GIBS / Worldview (VIIRS S-NPP)",
+    "#06101f",
+    "https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",
+  );
 }
+
+const STYLES: Record<Basemap, () => StyleSpecification> = {
+  satellite: satelliteStyle,
+  dark: () => rasterStyle("esri", "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}", ESRI_ATTR, "#0b0f19", "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}"),
+  light: () => rasterStyle("esri", "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}", ESRI_ATTR, "#e8eef3"),
+};
 
 export function RealMap({
   cities,
@@ -83,7 +95,7 @@ export function RealMap({
   className?: string;
 }) {
   const ref = useRef<MapRef>(null);
-  const style = useMemo(() => (basemap === "satellite" ? satelliteStyle() : CARTO[basemap]), [basemap]);
+  const style = useMemo(() => STYLES[basemap](), [basemap]);
 
   const cityGeo = useMemo<FeatureCollection<Point>>(
     () => ({

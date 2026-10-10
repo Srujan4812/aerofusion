@@ -191,7 +191,7 @@ function Body({ snap, slug }: { snap: LiveSnapshot; slug: string }) {
         </Card>
 
         <Card padded={false} className="relative min-h-[520px] overflow-hidden xl:col-span-5">
-          <RealMap basemap="dark" cities={mapCities} fires={snap.fires.points} wind={false} labels={false} selected={live.slug} />
+          <RealMap basemap="satellite" cities={mapCities} fires={snap.fires.points} wind={false} labels={false} selected={live.slug} />
           <div className="glass pointer-events-none absolute left-4 top-4 z-10 rounded-2xl px-3 py-2">
             <div className="text-sm font-semibold text-fg">PM2.5 now · {view === "scenario" ? "with your scenario" : "live CAMS"}</div>
             <div className="text-[11px] text-fg-muted">Effect fades with distance from {live.name} (illustrative)</div>

@@ -123,7 +123,7 @@ function Body({ snap }: { snap: LiveSnapshot }) {
       <div className="mt-4 grid gap-4 xl:grid-cols-12">
         <Card padded={false} className="relative h-[540px] overflow-hidden xl:col-span-7">
           <RealMap
-            basemap="dark"
+            basemap="satellite"
             cities={snap.cities.map((c) => ({ slug: c.slug, name: c.name, lat: c.lat, lon: c.lon, pm25: c.pm25, wind: c.wind, windDir: c.wind_dir }))}
             fires={snap.fires.points}
             wind={false}
